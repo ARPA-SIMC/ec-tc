@@ -119,15 +119,41 @@ class TcFamily:
         self.conf.update(conf)
 
 
-# Add the root family for looping on days and hours (loop on hours not
-# implemented yet)
+# Add the basic ECF_ variables (not really a family)
+class TcEcfVars(TcFamily):
+    def add_to(self, node):
+        for var in conf["ecf_vars"]:
+            node.add_variable(var, conf["ecf_vars"][var])
+
+
+# Add the root family for looping on days and hours
 class TcSuiteTime(TcFamily):
     def add_to(self, node):
+        hour = []
         day = node.add_family("day").add_repeat(
             ecflow.RepeatDate("YMD",
                               int((datetime.datetime.now()-datetime.timedelta(days=self.conf["deltaday"])).strftime("%Y%m%d")),
                               int((datetime.datetime.now()+datetime.timedelta(days=5000)).strftime("%Y%m%d"))))
-        return day # day is the new root of the suite. it must be returned
+        for h in self.conf["hours"]:
+            famname = "hour_" + ("%02d" % h)
+            hour.append(day.add_family(famname).add_variable("TIME", "%02d" % h))
+        return hour # further on the user has to loop on hour for filling the suite
+
+    # return an updated conf dictionary including hour of current node
+    def updatedconf(self, node):
+        if node.name().startswith("hour_"):
+            hour = int(node.name().removeprefix("hour_").removeprefix("0"))
+            newconf = self.conf.copy()
+            newconf["time"] = hour
+            return newconf
+
+# Add an inactive family for emergency tasks
+class TcEmergency(TcFamily):
+    def add_to(self, node):
+        fam = node.add_family("emergency")
+        fam.add_defstatus(ecflow.Defstatus("complete"))
+        fam.add_task("emergency_start_hpcf")
+        fam.add_task("switch_STHOST")
 
 
 # Add a family for starting suite 
@@ -146,7 +172,10 @@ class TcPre(TcFamily):
     def add_to(self, node):
         for pre in self.conf["pretypes"]: # mars, diss
             fam = node.add_family(f"pre_{pre}")
-            fam.add_late(ecflow.Late(active="09:30", complete="11:59")) # shift 00 or 12?
+            ddt = datetime.datetime(1970, 1, 1, self.conf["time"])
+            ltact = (ddt + datetime.timedelta(hours=9, minutes=30)).time().isoformat(timespec="minutes")
+            lcmpl = (ddt + datetime.timedelta(hours=11, minutes=59)).time().isoformat(timespec="minutes")
+            fam.add_late(ecflow.Late(active=ltact, complete=lcmpl))
             if self.conf["predefault"] != pre: fam.add_defstatus(ecflow.Defstatus("complete"))
             fam.add_trigger("./start_suite_eps == complete")
             fam.add_task(f"get_pl_{pre}")
@@ -221,15 +250,20 @@ if __name__ == '__main__':
     interactive = True
     # vars and configuration management to be improved    
     ecf_vars={"SCHOST": "hpc-login",
+              "STHOST": "ws1",
+              "STHOST_BKUP": "ws2",
               "ECF_FILES": os.path.join(os.getcwd(), "ecffiles"),
               "ECF_INCLUDE": os.path.join(os.getcwd(), "include"),
-              "ECF_HOME": os.path.join(os.getcwd(), "work"),
-              "ECF_STATUS_CMD": "/opt/troika/bin/troika monitor %SCHOST% %ECF_JOB%",
-              "ECF_KILL_CMD": "/opt/troika/bin/troika kill %SCHOST% %ECF_JOB%",
-              "ECF_JOB_CMD": "/opt/troika/bin/troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
+              "ECF_HOME": os.path.join(os.getcwd(), "ecflow"),
+              "ECF_STATUS_CMD": "STHOST=%STHOST% /opt/troika/bin/troika monitor %SCHOST% %ECF_JOB%",
+              "ECF_KILL_CMD": "STHOST=%STHOST% /opt/troika/bin/troika kill %SCHOST% %ECF_JOB%",
+              "ECF_JOB_CMD": "STHOST=%STHOST% /opt/troika/bin/troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
               "ECF_TRIES": "2",
+              "ECTC_CONF": os.path.join(os.getcwd(), "conf"), # shell conf files to be sourced
+              "ECTC_WORK": os.path.join(os.getcwd(), "work") # "fat" work dir
     }
     conf={"deltaday": 1,
+          "ecf_vars": ecf_vars, # defined above
           "hours": range(0, 24, 12), # (0,24,24) to run only at 00
           "forecastrange": 132,
           "subsuites": ("ana", "eps", "det"),
@@ -241,17 +275,21 @@ if __name__ == '__main__':
 
     # create a suite, ileps.suite will be the root node of the suite
     ileps = TcSuite("ileps_timecrit")
-    # add configure ECF vars, this should be moved to a special subroutine
-    for var in ecf_vars:
-        ileps.suite.add_variable(var, ecf_vars[var])
+    # add defined ECF vars
+    TcEcfVars(conf).add_to(ileps.suite)
+    TcEmergency(conf).add_to(ileps.suite)
     # add timing loop
-    newroot = TcSuiteTime(conf).add_to(ileps.suite)
-    # add the rest of the suite elements to the new root of the suite
-    TcStartSuite(conf).add_to(newroot) # short for f=TcStartSuite(conf); f.add_to(newroot)
-    TcIconSoil(conf).add_to(newroot)
-    TcPre(conf).add_to(newroot)
-    TcRun(conf).add_to(newroot)
-    TcRegribFdb(conf).add_to(newroot)
+    suitetime = TcSuiteTime(conf)
+    for timeloop in suitetime.add_to(ileps.suite):
+        # get a new conf including current time
+        conft = suitetime.updatedconf(timeloop)
+        # add the rest of the suite elements to the new root of the suite
+        TcStartSuite(conft).add_to(timeloop) # short for f=TcStartSuite(conf); f.add_to(timeloop)
+        TcIconSoil(conft).add_to(timeloop)
+        TcPre(conft).add_to(timeloop)
+        TcRun(conft).add_to(timeloop)
+        TcRegribFdb(conft).add_to(timeloop)
+    # add anything to be added outside the time loop .add_to(ileps.suite)
     # check the suite (syntax, triggers, jobs)
     ileps.check()
     #ileps.checked=True
