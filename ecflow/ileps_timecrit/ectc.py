@@ -249,18 +249,21 @@ class TcRegribFdb(TcFamily):
 if __name__ == '__main__':
     interactive = True
     # vars and configuration management to be improved    
-    ecf_vars={"SCHOST": "hpc-login",
+    ecf_vars={"SCHOST": "hpc",
+              "WSHOST": "hpc",
               "STHOST": "ws1",
               "STHOST_BKUP": "ws2",
               "ECF_FILES": os.path.join(os.getcwd(), "ecffiles"),
               "ECF_INCLUDE": os.path.join(os.getcwd(), "include"),
               "ECF_HOME": os.path.join(os.getcwd(), "ecflow"),
-              "ECF_STATUS_CMD": "STHOST=%STHOST% /opt/troika/bin/troika monitor %SCHOST% %ECF_JOB%",
-              "ECF_KILL_CMD": "STHOST=%STHOST% /opt/troika/bin/troika kill %SCHOST% %ECF_JOB%",
-              "ECF_JOB_CMD": "STHOST=%STHOST% /opt/troika/bin/troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
+              "ECF_STATUS_CMD": "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%",
+              "ECF_KILL_CMD": "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%",
+              "ECF_JOB_CMD": "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
               "ECF_TRIES": "2",
+              "ECTC_JOB_TYPE": "serial",
+              "ECTC_ENS_MEMB": "0",
               "ECTC_CONF": os.path.join(os.getcwd(), "conf"), # shell conf files to be sourced
-              "ECTC_WORK": os.path.join(os.getcwd(), "work") # "fat" work dir
+              "ECTC_WORK": os.path.join(os.getcwd(), "work", "%STHOST%", "tc") # "fat" work dir, to become os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork")
     }
     conf={"deltaday": 1,
           "ecf_vars": ecf_vars, # defined above

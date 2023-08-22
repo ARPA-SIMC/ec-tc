@@ -5,3 +5,34 @@ GET_ML_DIR=$ECTC_WORK/get_ml.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
 ICON_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
+
+
+## @fn safe_rm_rf()
+## @brief Remove recursively directory tree(s) with some security checks.
+## @details This function removes the requested directories and all
+## their content recursively (`rm -rf`) performing some preliminary
+## checks to prevent removing undesired files due, e.g., to wrong
+## environmental variable assignment. Each argument provided must
+## match the following conditions:
+## 
+##  * being non null
+##  * being not equal to /
+##  * being a directory
+##  * being owned or writable by the user
+## 
+## otherwise the removal for the current argument is canceled and the
+## following argument is examined.
+## 
+## @param $* directories to be removed
+safe_rm_rf() {
+    for dir in "$@"; do
+        if [ -n "$dir" -a "$dir" != "/" ]; then
+            if [ -d "$dir" ]; then
+                if [ -O "$dir" -o -w "$dir" ]; then
+                    rm -rf "$dir"
+                fi
+            fi
+        fi
+    done
+
+}

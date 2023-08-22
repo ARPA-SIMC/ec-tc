@@ -1,1 +1,5 @@
 # empty job
+safe_rm_rf $REMAP_DIR
+
+mkdir -p $REMAP_DIR
+mkdir -p $REMAP_DIR/data

@@ -1,1 +1,5 @@
 # empty job
+safe_rm_rf $CLUST_ANA_DIR
+
+mkdir -p $CLUST_ANA_DIR
+mkdir -p $CLUST_ANA_DIR/data
