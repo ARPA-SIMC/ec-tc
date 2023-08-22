@@ -1,4 +1,6 @@
-%include <job_prolog.h>
+%include <sched_prolog.h>
+%include <sched_parallel.h>
+%include <script_prolog.h>
 
 safe_rm_rf $ICON_DIR
 

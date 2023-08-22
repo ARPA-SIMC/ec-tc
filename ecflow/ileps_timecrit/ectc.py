@@ -269,7 +269,6 @@ if __name__ == '__main__':
               "ECF_KILL_CMD": "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%",
               "ECF_JOB_CMD": "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
               "ECF_TRIES": "2",
-              "ECTC_JOB_TYPE": "serial",
               "ECTC_ENS_MEMB": "0",
               "ECTC_CONF": os.path.join(os.getcwd(), "conf"), # shell conf files to be sourced
               "ECTC_WORK": os.path.join(os.getcwd(), "work", "%STHOST%", "tc") # "fat" work dir, to become os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork")
