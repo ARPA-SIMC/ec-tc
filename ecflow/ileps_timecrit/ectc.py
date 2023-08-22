@@ -186,8 +186,7 @@ class TcPre(TcFamily):
             lcmpl = (ddt + datetime.timedelta(hours=11, minutes=59)).time().isoformat(timespec="minutes")
             fam.add_late(ecflow.Late(active=ltact, complete=lcmpl))
             if self.conf["predefault"] != pre: fam.add_defstatus(ecflow.Defstatus("complete"))
-            fam.add_trigger("./start_suite_eps == complete")
-            fam.add_task(f"get_pl_{pre}")
+            fam.add_task(f"get_pl_{pre}").add_trigger("../start_suite_eps == complete")
             fam.add_task("cluster_analysis").add_trigger(f"./get_pl_{pre} == complete")
             # configure task should be deleted and its tasks distributed
             fam.add_task("configure").add_trigger("./cluster_analysis == complete")
@@ -233,7 +232,7 @@ class TcRun(TcFamily):
             for pre in self.conf["pretypes"]: # mars, diss
                 trig = expr_and(trig, f"../../pre_{pre}/get_ml/{fname} == complete")
             run.add_task("remap").add_trigger(trig)
-            run.add_task("icon").add_trigger("./icon == complete && ../../iconsoil == complete")
+            run.add_task("icon").add_trigger("./remap == complete && ../../iconsoil == complete")
 
 
 # Add a family for regribbing for cluster analysis and writing to fdb for each member
