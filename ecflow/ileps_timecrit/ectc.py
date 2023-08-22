@@ -277,7 +277,7 @@ if __name__ == '__main__':
           "membrange": range(5)}
 
     # create a suite, ileps.suite will be the root node of the suite
-    ileps = TcSuite("ileps_timecrit")
+    ileps = TcSuite("ileps_timecrit_ng")
     # add defined ECF vars
     TcEcfVars(conf).add_to(ileps.suite)
     TcEmergency(conf).add_to(ileps.suite)
