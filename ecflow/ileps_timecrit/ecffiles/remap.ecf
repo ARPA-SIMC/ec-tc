@@ -1,4 +1,6 @@
-# empty job
+%include <job_prolog.h>
+
+
 safe_rm_rf $REMAP_DIR
 
 mkdir -p $REMAP_DIR

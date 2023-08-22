@@ -1,1 +1,6 @@
-# empty job
+%include <job_prolog.h>
+
+safe_rm_rf $GET_PL_DIR
+
+mkdir -p $GET_PL_DIR
+mkdir -p $GET_PL_DIR/data

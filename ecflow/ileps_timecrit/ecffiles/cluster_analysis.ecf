@@ -1,4 +1,5 @@
-# empty job
+%include <job_prolog.h>
+
 safe_rm_rf $CLUST_ANA_DIR
 
 mkdir -p $CLUST_ANA_DIR

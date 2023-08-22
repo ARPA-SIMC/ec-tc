@@ -6,3 +6,4 @@
 %include <sched_accounting.h>
 
 %include <head.h>
+%include <vars.h>

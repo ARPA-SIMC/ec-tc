@@ -1,1 +1,2 @@
-# empty job
+%include <job_prolog.h>
+

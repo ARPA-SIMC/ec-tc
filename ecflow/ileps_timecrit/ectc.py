@@ -27,6 +27,15 @@ def expr_or(expr, orexpr):
     else:
         return expr+" || "+orexpr
 
+# incremental and for trigger syntax
+def expr_and(expr, andexpr):
+    if expr == "":
+        return andexpr
+    elif andexpr == "":
+        return expr
+    else:
+        return expr+" && "+andexpr
+
 
 def ask_confirm(msg=""):
     ans = input(msg+" (y/n)? ")
@@ -222,7 +231,7 @@ class TcRun(TcFamily):
             run.add_variable("ECF_ENS_MEMB", str(eps_memb))
             trig = ""
             for pre in self.conf["pretypes"]: # mars, diss
-                trig = expr_or(trig, f"../../pre_{pre}/get_ml/{fname} == complete")
+                trig = expr_and(trig, f"../../pre_{pre}/get_ml/{fname} == complete")
             run.add_task("remap").add_trigger(trig)
             run.add_task("icon").add_trigger("./icon == complete && ../../iconsoil == complete")
 
@@ -299,4 +308,4 @@ if __name__ == '__main__':
     # write suite to a .def file
     ileps.write(interactive=interactive)
     # upload/replace on server (with confirmation if interactive)
-    #ileps.replace(interactive=interactive)
+    ileps.replace(interactive=interactive)
