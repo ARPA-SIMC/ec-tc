@@ -23,5 +23,7 @@ fi
 # -1 control
 # -2 loop on all members from 0 to $ENS_TOTAL_MEMB
 
-# source conf
+# source conf with autoexport
+set -a
 . $ECTC_CONF/%SUITE%
+set +a

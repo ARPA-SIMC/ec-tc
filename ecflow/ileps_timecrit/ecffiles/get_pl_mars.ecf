@@ -2,7 +2,69 @@
 %include <sched_serial.h>
 %include <script_prolog.h>
 
-safe_rm_rf $GET_PL_DIR
+retrieve_pl_mars() {
 
+cat >req_cluster_ana_pl << FINIFINI
+RETRIEVE,
+$anfc,
+LEVTYPE=PL,
+LEVELIST=850/700/500
+REPRES=LL,
+DATE=$refdate,
+TIME=$reftime,
+PARAM=129/131/132/133,
+$geoinfo,
+FORMAT=P,
+EXPVER=$EXPID, #%CLST_EXPID%
+CLASS=OD,
+TYPE=CF,
+STREAM=ENFO
+TARGET="data/ec_tuv_[STEP]".
+FINIFINI
+
+
+    date=$YMD,
+    time=$marshour,
+    type=cf,
+    stream=enfo,
+    levtype=pl,
+    param=$PARAM,
+    levelist=$LLIST,
+    repres=ll,
+    grid=$GRID,
+    step=$STEPS,
+    class=$CLASS,
+    expver=$EXPID,
+    area=$AREA,
+    res=AV,
+    TARGET=ctrl
+
+retrieve,
+    type=pf,
+    NUMBER=1/to/50,
+    TARGET=pert
+END
+
+
+
+}
+
+# for dateincr
+module load eclib
+
+safe_rm_rf $GET_PL_DIR
 mkdir -p $GET_PL_DIR
 mkdir -p $GET_PL_DIR/data
+cd $GET_PL_DIR
+
+refdate=$DATE
+reftime=$TIME
+anfc="TYPE=FC,STEP=96/120/144"
+
+prevdate=`dateincr -m $DATE$TIME -720`
+refdate=${prevdate:0:8}
+reftime=${prevdate:8:4}
+anfc="TYPE=FC,STEP=108/120/132"
+
+
+

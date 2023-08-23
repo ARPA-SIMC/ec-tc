@@ -1,3 +1,6 @@
+# this script is sourced with set -a (automatic export), so there is
+# no need to export every single variable
+
 ICONSOIL_DIR=$ECTC_WORK/iconsoil
 GET_PL_DIR=$ECTC_WORK/get_pl
 CLUST_ANA_DIR=$ECTC_WORK/clust_ana
@@ -5,6 +8,24 @@ GET_ML_DIR=$ECTC_WORK/get_ml.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
 ICON_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
+
+# input data configuration
+CLA_AREA==60.0/-10.0/30.0/30.0
+CLA_GRID=0.2/0.2
+CLA_EXPID=0001
+CLA_HINCBD=3
+
+EPS_NLEV=137
+EPS_AREA=65.0/-25.0/30.0/45.0
+EPS_GRID=0.2/0.2
+EPS_EXPID=0001
+EPS_HINCBD=3
+
+DET_NLEV=137
+DET_AREA=65.0/-25.0/30.0/45.0
+DET_GRID=0.1/0.1
+DET_EXPID=0001
+DET_HINCBD=3
 
 
 ## @fn safe_rm_rf()
