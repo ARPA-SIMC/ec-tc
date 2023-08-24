@@ -186,11 +186,11 @@ class TcPre(TcFamily):
             lcmpl = (ddt + datetime.timedelta(hours=11, minutes=59)).time().isoformat(timespec="minutes")
             fam.add_late(ecflow.Late(active=ltact, complete=lcmpl))
             if self.conf["predefault"] != pre: fam.add_defstatus(ecflow.Defstatus("complete"))
-            fam.add_task(f"get_pl_{pre}").add_trigger("../start_suite_eps == complete")
-            fam.add_task("cluster_analysis").add_trigger(f"./get_pl_{pre} == complete")
+            fam.add_task(f"retrieve_cla_pl_{pre}").add_trigger("../start_suite_eps == complete")
+            fam.add_task("cluster_analysis").add_trigger(f"./retrieve_cla_pl_{pre} == complete")
             # configure task should be deleted and its tasks distributed
             fam.add_task("configure").add_trigger("./cluster_analysis == complete")
-            get = fam.add_family("get_ml") # inlimit /ileps_timecrit:get_ml_limit
+            get = fam.add_family("retrieve_ic_bc") # inlimit /ileps_timecrit:get_ml_limit
             for eps_memb in self.conf["membrange"]:
                 fname = membname(eps_memb, "eps_member_")
                 if eps_memb > 0: # eps membs depend on cluster analysis, det does not
@@ -200,13 +200,13 @@ class TcPre(TcFamily):
                 memfam = get.add_family(fname).add_variable("ECF_ENS_MEMB", str(eps_memb)).add_trigger(trig)
                 if self.conf.get("splitretrieve", None) is not None:
                     # add an analysis family
-                    memfam.add_family(f"retrieve_ana").add_task(f"retrieve_ec_bc_day_{pre}").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0")
+                    memfam.add_family(f"retrieve_ana").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0")
                     # add a family for each forecast day
                     nh = self.conf["forecastrange"]
                     for d in range(math.ceil(nh/24)):
-                        memfam.add_family(f"retrieve_day_{d}").add_task(f"retrieve_ec_bc_day_{pre}").add_variable("RETRIEVE_START", f"{d*24}").add_variable("RETRIEVE_STOP", f"{min((d+1)*24, nh)}")
+                        memfam.add_family(f"retrieve_day_{d}").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", f"{d*24}").add_variable("RETRIEVE_STOP", f"{min((d+1)*24, nh)}")
                 else:
-                    memfam.add_task(f"retrieve_ec_bc_{pre}")
+                    memfam.add_task(f"retrieve_ic_bc_{pre}")
 
 
 # Add a run family for retrieving (DWD) icon soil
@@ -230,7 +230,7 @@ class TcRun(TcFamily):
             run.add_variable("ECF_ENS_MEMB", str(eps_memb))
             trig = ""
             for pre in self.conf["pretypes"]: # mars, diss
-                trig = expr_and(trig, f"../../pre_{pre}/get_ml/{fname} == complete")
+                trig = expr_and(trig, f"../../pre_{pre}/retrieve_ic_bc/{fname} == complete")
             run.add_task("remap").add_trigger(trig)
             run.add_task("icon").add_trigger("./remap == complete && ../../iconsoil == complete")
 
