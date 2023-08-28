@@ -197,7 +197,7 @@ class TcPre(TcFamily):
                     trig = "../configure == complete" # rather "../cluster_analysis == complete"
                 elif eps_memb == 0:
                     trig = "../../start_suite_det == complete"
-                memfam = get.add_family(fname).add_variable("ECF_ENS_MEMB", str(eps_memb)).add_trigger(trig)
+                memfam = get.add_family(fname).add_variable("ECTC_ENS_MEMB", str(eps_memb)).add_trigger(trig)
                 if self.conf.get("splitretrieve", None) is not None:
                     # add an analysis family
                     memfam.add_family(f"retrieve_ana").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0")
@@ -227,7 +227,7 @@ class TcRun(TcFamily):
         for eps_memb in self.conf["membrange"]:
             fname = membname(eps_memb, "eps_member_")
             run = fam.add_family(fname)
-            run.add_variable("ECF_ENS_MEMB", str(eps_memb))
+            run.add_variable("ECTC_ENS_MEMB", str(eps_memb))
             trig = ""
             for pre in self.conf["pretypes"]: # mars, diss
                 trig = expr_and(trig, f"../../pre_{pre}/retrieve_ic_bc/{fname} == complete")
@@ -243,7 +243,7 @@ class TcRegribFdb(TcFamily):
         for eps_memb in self.conf["membrange"]:
             fname = membname(eps_memb, "eps_member_")
             raf = fam.add_family(fname)
-            raf.add_variable("ECF_ENS_MEMB", str(eps_memb))
+            raf.add_variable("ECTC_ENS_MEMB", str(eps_memb))
             raf.add_trigger(f"../iconrun/{fname} == complete")
             # copio tutto bovinamente, comprese le asimmetrie dei trigger
             raf.add_task("get_dataoutput") # ha senso spostare i dati?

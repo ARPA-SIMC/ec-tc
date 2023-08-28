@@ -8,6 +8,7 @@ RETRIEVE_IC_BC_DIR=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
 ICON_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
+BIN_DIR=$ECTC_WORK/BIN
 
 # input data configuration
 CLA_AREA=60.0/-10.0/30.0/30.0
@@ -26,6 +27,14 @@ DET_AREA=65.0/-25.0/30.0/45.0
 DET_GRID=0.1/0.1
 DET_EXPID=0001
 DET_HINCBD=3
+
+# ensemble configuration
+NLEPSMEMB=20
+CLA_LAG=(0 12)
+CLA_STEP=(96 120)
+
+CLA_NENS=${#CLA_LAG[*]}
+CLA_NSTEP=${#CLA_STEP[*]}
 
 
 ## @fn safe_rm_rf()

@@ -5,9 +5,9 @@
 # retrieve initial surface/soil fields, mostly on target grid,
 # retrieve also soil moisture and soil type on global reduced Gaussian
 # for further computation of smi
-retrieve_ml_ana_mars() {
+retrieve_surf_ana_mars() {
 
-cat >req_${refdate}_${reftime}_ana << FINIFINI
+cat >req_${refdate}${reftime}_ana << FINIFINI
 RETRIEVE,
 $anfc,
 LEVTYPE=SFC,
@@ -41,13 +41,13 @@ TARGET="data/ec_${refdate}${reftime}_ggswv"
 
 RETRIEVE,
 PARAM=SLT,
+$marsinfoctrl,
 TARGET="data/ec_${refdate}${reftime}_ggslt"
 
 FINIFINI
 
-mars req_${refdate}_${reftime}_ana
-
-rm -f req_${refdate}_${reftime}_ana
+mars req_${refdate}${reftime}_ana
+rm -f req_${refdate}${reftime}_ana
 }
 
 
@@ -66,7 +66,7 @@ PARAM=T/U/V/Q/CLWC/CIWC/CRWC/CSWC,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo,
-TARGET="data/ec_ml_[STEP]"
+TARGET="data/ec_${refdate}${reftime}_[STEP]_ml"
 
 RETRIEVE,
 PARAM=LNSP,
@@ -74,17 +74,13 @@ LEVLIST=1
 FINIFINI
 
 mars req_ml_$RETRIEVE_STOP
-
 rm -f req_ml_$RETRIEVE_STOP
-
 }
 
 safe_rm_rf $RETRIEVE_IC_BC_DIR
 mkdir -p $RETRIEVE_IC_BC_DIR
 mkdir -p $RETRIEVE_IC_BC_DIR/data
 cd $RETRIEVE_IC_BC_DIR
-
-# https://confluence.ecmwf.int/pages/viewpage.action?pageId=149341825
 
 # target file names composed with leading zeroes
 export MARS_MULTITARGET_STRICT_FORMAT=1
@@ -106,8 +102,10 @@ else # leps member
     lag=$lag
     if [ "$elem" = 0 ]; then
         marsinfo="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
+	marsinfo_ctrl=$marsinfo
     else
         marsinfo="CLASS=OD,STREAM=enfo,TYPE=pf,NUMBER=$elem,PADDING=0"
+        marsinfo_ctrl="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
     fi
     geoinfo0="AREA=$EPS_AREA,GRID=$EPS_GRID"
     NLEV=$EPS_NLEV
@@ -118,7 +116,7 @@ fi
 if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis required
     anfc="TYPE=AN"
     geoinfo="${geoinfo0},TRUNCATION=NONE"
-    retrieve_ml_ana_mars
+    retrieve_surf_ana_mars
     retrieve_ml_mars
 else
     anfc="TYPE=FC,STEP=$(($RETRIEVE_START+$hincbd))/to/$RETRIEVE_STOP/by/$hincbd"

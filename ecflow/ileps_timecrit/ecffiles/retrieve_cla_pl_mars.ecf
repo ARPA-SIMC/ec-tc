@@ -4,7 +4,7 @@
 
 retrieve_pl_mars() {
 
-cat >req_cluster_ana_pl << FINIFINI
+cat >req_clustana_pl << FINIFINI
 RETRIEVE,
 $anfc,
 LEVTYPE=PL,
@@ -14,20 +14,20 @@ DATE=$refdate,
 TIME=$reftime,
 PARAM=129/131/132/133,
 $geoinfo,
-FORMAT=P,
 EXPVER=$CLA_EXPID,
 CLASS=OD,
 TYPE=cf,
 STREAM=enfo,
-TARGET="data/ctrl.grib"
+TARGET="data/ec_${refdate}${reftime}_ctrl.grib"
 
 RETRIEVE
 TYPE=pf,
 NUMBER=1/to/50,
-TARGET="data/pert.grib"
-
+TARGET="data/ec_${refdate}${reftime}_pert.grib"
 FINIFINI
 
+mars req_clustana_pl
+rm -f req_clustana_pl
 }
 
 # for dateincr
@@ -40,15 +40,18 @@ cd $RETRIEVE_CLA_DIR
 
 geoinfo="AREA=$CLA_AREA,GRID=$CLA_GRID,TRUNCATION=AUTO"
 
-# retrieve data for current date
-refdate=$DATE
-reftime=$TIME
-anfc="TYPE=FC,STEP=96/120/144"
-req_cluster_ana_pl
+for lag in ${CLA_LAG[*]}; do
+    prevdate=`dateincr mh $DATE$TIME -$(($lag * 60))`
+    refdate=${prevdate:0:8}
+    reftime=${prevdate:8:4}
+    steps=
+    for st in ${CLA_STEP[*]}; do
+    	steps="$steps/$st"
+    done
+    anfc="TYPE=FC,STEP=${steps#?}
+    retrieve_pl_mars
+done
 
-# retrieve data for previous run (12 hours ago)
-prevdate=`dateincr -m $DATE$TIME -720`
-refdate=${prevdate:0:8}
-reftime=${prevdate:8:4}
-anfc="TYPE=FC,STEP=108/120/132"
-req_cluster_ana_pl
+# was:
+# anfc="TYPE=FC,STEP=96/120/144" # apparently only 96, 120 used
+# anfc="TYPE=FC,STEP=108/120/132" # apparently only 108, 132 used

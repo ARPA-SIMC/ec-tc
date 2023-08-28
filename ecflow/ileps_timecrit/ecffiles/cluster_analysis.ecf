@@ -6,3 +6,33 @@ safe_rm_rf $CLUST_ANA_DIR
 
 mkdir -p $CLUST_ANA_DIR
 mkdir -p $CLUST_ANA_DIR/data
+
+cat >cluster_analysis.naml <<EOF
+&setup
+ nclust = $NLEPSMEMB,
+ nens = $CLA_NENS,
+ nstep = $CLA_NSTEP
+ outputdir = '$CLUST_ANA_DIR/data'
+/end
+EOF
+
+for lag in ${CLA_LAG[*]}; do
+    prevdate=`dateincr mh $DATE$TIME -$(($lag * 60))`
+    refdate=${prevdate:0:8}
+    reftime=${prevdate:8:4}
+    steps=
+    for st in ${CLA_STEP[*]}; do
+        steps="$steps $st,"
+    done
+
+    cat >>cluster_analysis.naml <<EOF
+&ensemble
+ reftime = '$refdate$reftime',
+ input_ctrl = '$RETRIEVE_CLA_DIR/data/ec_${refdate}${reftime}_ctrl.grib'
+ input_pert = '$RETRIEVE_CLA_DIR/data/ec_${refdate}${reftime}_pert.grib'
+ steps = $steps
+ lag = $lag,
+/end
+EOF
+
+#$BIN_DIR/cleps_cluster_analysis
