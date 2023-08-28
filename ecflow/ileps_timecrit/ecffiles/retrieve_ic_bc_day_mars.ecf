@@ -2,13 +2,12 @@
 %include <sched_serial.h>
 %include <script_prolog.h>
 
+# retrieve initial surface/soil fields, mostly on target grid,
+# retrieve also soil moisture and soil type on global reduced Gaussian
+# for further computation of smi
 retrieve_ml_ana_mars() {
-###
-### 1.1) get the land-sea mask over the gaussian grid !!!
-###      and the orography on model levels            !!!
-##       GET ALSO the SOIL TYPE from the determinisitc run!!! [icon???]
-###
-cat >req_${refdate}_${reftime}_external_ana << FINIFINI
+
+cat >req_${refdate}_${reftime}_ana << FINIFINI
 RETRIEVE,
 $anfc,
 LEVTYPE=SFC,
@@ -16,168 +15,75 @@ LEVELIST=OFF,
 REPRES=GG,
 DATE=$refdate,
 TIME=$reftime,
-PARAM=LSM,
+PARAM=SST/SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
 $geoinfo,
-FORMAT=P,
-EXPVER=$EXPID,
-$epsinfo,
-TARGET="data/ec_${refdate}${reftime}_lsm"
+EXPVER=$expid,
+$marsinfo,
+TARGET="data/ec_${refdate}${reftime}_surf"
+
+RETRIEVE,
+PARAM=Z/LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
+TARGET="data/ec_${refdate}${reftime}_const"
 
 RETRIEVE,
 LEVTYPE=ML,
 LEVELIST=1,
 REPRES=SH,
-PARAM=Z,
-TARGET="data/ec_${refdate}${reftime}_z"
+PARAM=Z
 
 RETRIEVE,
-CLASS=OD,
-TYPE=AN,
-STREAM=OPER,
+GRID=AV,
+AREA=OFF,
 LEVTYPE=SFC,
 LEVELIST=OFF,
-REPRES=GG,
-DATE=$refdate,
-TIME=$reftime,
+PARAM=SWVL1/SWVL2/SWVL3/SWVL4,
+TARGET="data/ec_${refdate}${reftime}_ggswv"
+
+RETRIEVE,
 PARAM=SLT,
-FORMAT=P,
-TARGET="data/ec_${refdate}${reftime}_slt"
+TARGET="data/ec_${refdate}${reftime}_ggslt"
 
 FINIFINI
 
-mars req_${refdate}_${reftime}_external_ana
+mars req_${refdate}_${reftime}_ana
 
-rm -f req_${refdate}_${reftime}_external_ana
+rm -f req_${refdate}_${reftime}_ana
 }
 
 
+# retrieve all fields on upper air model levels (including lnsp at a single model level)
 retrieve_ml_mars() {
 
-############################################
-### 1)  get all fields at the forecast times
-###     you need (51,54,..,72) 
-###    using MARS MULTITARGET option
-###    applied to [STEP]
-############################################
-###
-### 1.1) get Z200 for LM vertical calculations [is this needed for ICON???]
-###
-cat >req_fic_$RETRIEVE_STOP << FINIFINI
-RETRIEVE,
-$anfc,
-LEVTYPE=PL,
-LEVELIST=200,
-REPRES=SH,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=Z, 
-$geoinfo,
-FORMAT=P,
-EXPVER=$EXPID,
-$epsinfo,
-TARGET="data/ec_fic_[STEP]"
-FINIFINI
-
-mars req_fic_$RETRIEVE_STOP
-
-###
-### 1.2) get surface fields
-###
-cat >req_surface_$RETRIEVE_STOP << FINIFINI
-RETRIEVE,
-$anfc,
-LEVTYPE=SFC,
-LEVELIST=OFF,
-REPRES=GG,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=$surfpar,
-$geoinfo,
-FORMAT=P,
-EXPVER=$EXPID,
-$epsinfo,
-TARGET="data/ec_surface_[STEP]"
-FINIFINI
-
-mars req_surface_$RETRIEVE_STOP
-
-###
-### 1.3) get T,U,V,Q on model levels
-###
-cat >req_tuv_$RETRIEVE_STOP << FINIFINI
+cat >req_ml_$RETRIEVE_STOP << FINIFINI
 RETRIEVE,
 $anfc,
 LEVTYPE=ML,
-LEVELIST=1/TO/$NLEV,
+LEVELIST=31/TO/$NLEV,
 REPRES=SH,
 DATE=$refdate,
 TIME=$reftime,
-PARAM=T/U/V/Q/LNSP,
+PARAM=T/U/V/Q/CLWC/CIWC/CRWC/CSWC,
 $geoinfo,
-FORMAT=P,
-EXPVER=$EXPID,
-$epsinfo,
-TARGET="data/ec_tuv_[STEP]".
-FINIFINI
+EXPVER=$expid,
+$marsinfo,
+TARGET="data/ec_ml_[STEP]"
 
-mars req_tuv_$RETRIEVE_STOP
-
-# should we retrieve LNSP in a separate RETRIEVE witl LEVELIST=1?  can
-# we merge all the upper level requests in one? can we, in general,
-# merge all requeste in a single one with a single target???
-
-###
-### 1.4) get cloud water and cloud ice on model levels
-###
-cat >req_cloud_$RETRIEVE_STOP << FINIFINI
 RETRIEVE,
-$anfc,
-LEVTYPE=ML,
-LEVELIST=1/TO/$NLEV,
-REPRES=SH,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=CLWC/CIWC,
-$geoinfo,
-FORMAT=P,
-EXPVER=$EXPID,
-$epsinfo,
-TARGET="data/ec_cloud_[STEP]"
+PARAM=LNSP,
+LEVLIST=1
 FINIFINI
 
-mars req_cloud_$RETRIEVE_STOP
+mars req_ml_$RETRIEVE_STOP
 
-###
-### 1.5) get water content of rain and snow on model levels
-###
-cat >req_water_$RETRIEVE_STOP << FINIFINI
-RETRIEVE,
-$anfc,
-LEVTYPE=ML,
-LEVELIST=1/TO/$NLEV,
-REPRES=SH,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=CRWC/CSWC,
-$geoinfo,
-FORMAT=P,
-EXPVER=$EXPID,
-$epsinfo,
-TARGET="data/ec_water_[STEP]"
-FINIFINI
-
-mars req_water_$RETRIEVE_STOP
-
-rm -f req_*_$RETRIEVE_STOP
+rm -f req_ml_$RETRIEVE_STOP
 
 }
 
-safe_rm_rf $GET_ML_DIR
-mkdir -p $GET_ML_DIR
-mkdir -p $GET_ML_DIR/data
-cd $GET_ML_DIR
+safe_rm_rf $RETRIEVE_IC_BC_DIR
+mkdir -p $RETRIEVE_IC_BC_DIR
+mkdir -p $RETRIEVE_IC_BC_DIR/data
+cd $RETRIEVE_IC_BC_DIR
 
-# resol replaced with truncation (av/auto -> NONE/AUTO)
 # https://confluence.ecmwf.int/pages/viewpage.action?pageId=149341825
 
 # target file names composed with leading zeroes
@@ -187,11 +93,11 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     refdate=$DATE
     reftime=$TIME
     lag=0
-    epsinfo=""
+    marsinfo="CLASS=OD,STREAM=oper,TYPE=fc,PADDING=0"
     geoinfo0="AREA=$DET_AREA,GRID=$DET_GRID"
     NLEV=$DET_NLEV
-    EXPID=$DET_EXPID
-    HINCBD=$DET_HINCBD
+    expid=$DET_EXPID
+    hincbd=$DET_HINCBD
 else # leps member
     # get cluster analysis information (to be reviewed)
     . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
@@ -199,29 +105,26 @@ else # leps member
     reftime=$ora
     lag=$lag
     if [ "$elem" = 0 ]; then
-        epsinfo="CLASS=OD,STREAM=enfo,TYPE=cf"
+        marsinfo="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
     else
-        epsinfo="CLASS=OD,STREAM=enfo,TYPE=pf,NUMBER=$elem"
+        marsinfo="CLASS=OD,STREAM=enfo,TYPE=pf,NUMBER=$elem,PADDING=0"
     fi
     geoinfo0="AREA=$EPS_AREA,GRID=$EPS_GRID"
     NLEV=$EPS_NLEV
-    EXPID=$EPS_EXPID
-    HINCBD=$EPS_HINCBD
+    expid=$EPS_EXPID
+    hincbd=$EPS_HINCBD
 fi
 
-surfpar=SWVL1/SWVL2/SWVL3/SWVL4/STL1/SD/STL2/STL3/SRC/STL4/TSN/SKT
-
-if [ "$RETRIEVE_START" = 0 ]; then # analysis required
-    geoinfo="${geoinfo0},TRUNCATION=NONE"
+if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis required
     anfc="TYPE=AN"
-    resol=AV
+    geoinfo="${geoinfo0},TRUNCATION=NONE"
     retrieve_ml_ana_mars
     retrieve_ml_mars
+else
+    anfc="TYPE=FC,STEP=$(($RETRIEVE_START+$hincbd))/to/$RETRIEVE_STOP/by/$hincbd"
+    geoinfo="${geoinfo0},TRUNCATION=AUTO"
+    retrieve_ml_mars
 fi
-
-anfc="TYPE=FC,STEP=$((RETRIEVE_START+$HINCBD))/to/$RETRIEVE_STOP/by/$HINCBD"
-geoinfo="${geoinfo0},TRUNCATION=AUTO"
-retrieve_ml_mars
 
 # todo: merge the files in data/ in a single file for each step with the
 # desired name

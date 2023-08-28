@@ -2,15 +2,15 @@
 # no need to export every single variable
 
 ICONSOIL_DIR=$ECTC_WORK/iconsoil
-GET_PL_DIR=$ECTC_WORK/get_pl
+RETRIEVE_CLA_DIR=$ECTC_WORK/retrieve_cla_pl
 CLUST_ANA_DIR=$ECTC_WORK/clust_ana
-GET_ML_DIR=$ECTC_WORK/get_ml.$ENS_MEMB
+RETRIEVE_IC_BC_DIR=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
 ICON_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
 
 # input data configuration
-CLA_AREA==60.0/-10.0/30.0/30.0
+CLA_AREA=60.0/-10.0/30.0/30.0
 CLA_GRID=0.2/0.2
 CLA_EXPID=0001
 CLA_HINCBD=3
