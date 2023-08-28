@@ -46,7 +46,7 @@ for lag in ${CLA_LAG[*]}; do
     reftime=${prevdate:8:4}
     steps=
     for st in ${CLA_STEP[*]}; do
-    	steps="$steps/$st"
+        steps="$steps/$st"
     done
     anfc="TYPE=FC,STEP=${steps#?}
     retrieve_pl_mars
