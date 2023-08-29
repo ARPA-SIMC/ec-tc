@@ -2,6 +2,9 @@
 %include <sched_serial.h>
 %include <script_prolog.h>
 
+# for dateincr
+module load eclib
+
 safe_rm_rf $CLUST_ANA_DIR
 
 mkdir -p $CLUST_ANA_DIR
@@ -17,7 +20,7 @@ cat >cluster_analysis.naml <<EOF
 EOF
 
 for lag in ${CLA_LAG[*]}; do
-    prevdate=`dateincr mh $DATE$TIME -$(($lag * 60))`
+    prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
     refdate=${prevdate:0:8}
     reftime=${prevdate:8:4}
     steps=
@@ -34,5 +37,7 @@ for lag in ${CLA_LAG[*]}; do
  lag = $lag,
 /end
 EOF
+
+done
 
 #$BIN_DIR/cleps_cluster_analysis

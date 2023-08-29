@@ -8,7 +8,7 @@ cat >req_clustana_pl << FINIFINI
 RETRIEVE,
 $anfc,
 LEVTYPE=PL,
-LEVELIST=850/700/500
+LEVELIST=850/700/500,
 REPRES=LL,
 DATE=$refdate,
 TIME=$reftime,
@@ -20,14 +20,14 @@ TYPE=cf,
 STREAM=enfo,
 TARGET="data/ec_${refdate}${reftime}_ctrl.grib"
 
-RETRIEVE
+RETRIEVE,
 TYPE=pf,
 NUMBER=1/to/50,
 TARGET="data/ec_${refdate}${reftime}_pert.grib"
 FINIFINI
 
 mars req_clustana_pl
-rm -f req_clustana_pl
+#rm -f req_clustana_pl
 }
 
 # for dateincr
@@ -41,14 +41,14 @@ cd $RETRIEVE_CLA_DIR
 geoinfo="AREA=$CLA_AREA,GRID=$CLA_GRID,TRUNCATION=AUTO"
 
 for lag in ${CLA_LAG[*]}; do
-    prevdate=`dateincr mh $DATE$TIME -$(($lag * 60))`
+    prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
     refdate=${prevdate:0:8}
     reftime=${prevdate:8:4}
     steps=
     for st in ${CLA_STEP[*]}; do
         steps="$steps/$st"
     done
-    anfc="TYPE=FC,STEP=${steps#?}
+    anfc="TYPE=FC,STEP=${steps#?}"
     retrieve_pl_mars
 done
 
