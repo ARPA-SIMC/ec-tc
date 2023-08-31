@@ -7,7 +7,7 @@
 # for further computation of smi
 retrieve_surf_ana_mars() {
 
-cat >req_${refdate}${reftime}_ana << FINIFINI
+cat >req_${refdate}${reftime}_ana1 << FINIFINI
 RETRIEVE,
 $anfc,
 LEVTYPE=SFC,
@@ -15,15 +15,11 @@ LEVELIST=OFF,
 REPRES=GG,
 DATE=$refdate,
 TIME=$reftime,
-PARAM=SST/SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
+PARAM=Z/SST/SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo,
 TARGET="data/ec_${refdate}${reftime}_surf"
-
-RETRIEVE,
-PARAM=Z/LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
-TARGET="data/ec_${refdate}${reftime}_const"
 
 RETRIEVE,
 LEVTYPE=ML,
@@ -31,23 +27,46 @@ LEVELIST=1,
 REPRES=SH,
 PARAM=Z
 
+FINIFINI
+
+cat >req_${refdate}${reftime}_ana2 << FINIFINI
 RETRIEVE,
-GRID=AV,
-AREA=OFF,
+$anfc,
 LEVTYPE=SFC,
 LEVELIST=OFF,
+REPRES=GG,
+DATE=$refdate,
+TIME=$reftime,
+PARAM=LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
+$geoinfo,
+EXPVER=$expid,
+$marsinfo_ctrl,
+TARGET="data/ec_${refdate}${reftime}_const"
+
+FINIFINI
+
+cat >req_${refdate}${reftime}_ana3 << FINIFINI
+RETRIEVE,
+$anfc,
+LEVTYPE=SFC,
+GRID=AV,
+AREA=OFF,
+LEVELIST=OFF,
 PARAM=SWVL1/SWVL2/SWVL3/SWVL4,
+$marsinfo,
 TARGET="data/ec_${refdate}${reftime}_ggswv"
 
 RETRIEVE,
 PARAM=SLT,
-$marsinfoctrl,
+$marsinfo_ctrl,
 TARGET="data/ec_${refdate}${reftime}_ggslt"
 
 FINIFINI
 
-mars req_${refdate}${reftime}_ana
-rm -f req_${refdate}${reftime}_ana
+mars req_${refdate}${reftime}_ana1
+mars req_${refdate}${reftime}_ana2
+mars req_${refdate}${reftime}_ana3
+rm -f req_${refdate}${reftime}_ana?
 }
 
 
@@ -70,16 +89,16 @@ TARGET="data/ec_${refdate}${reftime}_[STEP]_ml"
 
 RETRIEVE,
 PARAM=LNSP,
-LEVLIST=1
+LEVELIST=1
 FINIFINI
 
 mars req_ml_$RETRIEVE_STOP
 rm -f req_ml_$RETRIEVE_STOP
 }
 
-safe_rm_rf $RETRIEVE_IC_BC_DIR
-mkdir -p $RETRIEVE_IC_BC_DIR
-mkdir -p $RETRIEVE_IC_BC_DIR/data
+#safe_rm_rf $RETRIEVE_IC_BC_DIR
+#mkdir -p $RETRIEVE_IC_BC_DIR
+#mkdir -p $RETRIEVE_IC_BC_DIR/data
 cd $RETRIEVE_IC_BC_DIR
 
 # target file names composed with leading zeroes
@@ -116,10 +135,16 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis required
     geoinfo="${geoinfo0},TRUNCATION=NONE"
     retrieve_surf_ana_mars
     retrieve_ml_mars
+    # insert here SMI calculation on data/ec_${refdate}${reftime}_ggswv data/ec_${refdate}${reftime}_ggslt with output on data/ec_${refdate}${reftime}_ggswv data/ec_${refdate}${reftime}_smi
+    touch data/ec_${refdate}${reftime}_[STEP]_smi # to avoid failure
+    cat data/ec_${refdate}${reftime}_const data/ec_${refdate}${reftime}_surf data/ec_${refdate}${reftime}_[STEP]_ml data/ec_${refdate}${reftime}_[STEP]_smi > data/ec_${refdate}${reftime}_[STEP].grib
+
 else
     anfc="TYPE=FC,STEP=$(($RETRIEVE_START+$hincbd))/to/$RETRIEVE_STOP/by/$hincbd"
     geoinfo="${geoinfo0},TRUNCATION=AUTO"
     retrieve_ml_mars
+    mv data/ec_${refdate}${reftime}_[STEP]_ml data/ec_${refdate}${reftime}_[STEP].grib
+
 fi
 
 # todo: merge the files in data/ in a single file for each step with the

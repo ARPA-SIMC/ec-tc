@@ -1,0 +1,7 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog.h>
+
+safe_rm_rf $RETRIEVE_IC_BC_DIR
+mkdir -p $RETRIEVE_IC_BC_DIR
+mkdir -p $RETRIEVE_IC_BC_DIR/data

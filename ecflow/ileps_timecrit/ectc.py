@@ -188,23 +188,22 @@ class TcPre(TcFamily):
             if self.conf["predefault"] != pre: fam.add_defstatus(ecflow.Defstatus("complete"))
             fam.add_task(f"retrieve_cla_pl_{pre}").add_trigger("../start_suite_eps == complete")
             fam.add_task("cluster_analysis").add_trigger(f"./retrieve_cla_pl_{pre} == complete")
-            # configure task should be deleted and its tasks distributed
-            fam.add_task("configure").add_trigger("./cluster_analysis == complete")
             get = fam.add_family("retrieve_ic_bc") # inlimit /ileps_timecrit:get_ml_limit
             for eps_memb in self.conf["membrange"]:
                 fname = membname(eps_memb, "eps_member_")
                 if eps_memb > 0: # eps membs depend on cluster analysis, det does not
-                    trig = "../configure == complete" # rather "../cluster_analysis == complete"
+                    trig = "../cluster_analysis == complete" # rather "../cluster_analysis == complete"
                 elif eps_memb == 0:
                     trig = "../../start_suite_det == complete"
                 memfam = get.add_family(fname).add_variable("ECTC_ENS_MEMB", str(eps_memb)).add_trigger(trig)
                 if self.conf.get("splitretrieve", None) is not None:
+                    memfam.add_task("setup_retrieve")
                     # add an analysis family
-                    memfam.add_family(f"retrieve_ana").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0")
+                    memfam.add_family(f"retrieve_ana").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0").add_trigger("../setup_retrieve == complete")
                     # add a family for each forecast day
                     nh = self.conf["forecastrange"]
                     for d in range(math.ceil(nh/24)):
-                        memfam.add_family(f"retrieve_day_{d}").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", f"{d*24}").add_variable("RETRIEVE_STOP", f"{min((d+1)*24, nh)}")
+                        memfam.add_family(f"retrieve_day_{d}").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", f"{d*24}").add_variable("RETRIEVE_STOP", f"{min((d+1)*24, nh)}").add_trigger("../setup_retrieve == complete")
                 else:
                     memfam.add_task(f"retrieve_ic_bc_{pre}")
 
