@@ -9,14 +9,21 @@ INTEGER :: levlist(3)=(/850, 700, 500/), varlist(4)=(/129, 131, 132, 133/)
 INTEGER :: nclust=-1, nens=-1, nmember=-1, nstep=-1, steps(nstepmax), clmethod=2, rmmethod=3, &
  lag, gridsize
 CHARACTER(len=512) :: outputdir='', input_ctrl, input_pert
-CHARACTER(len=14) :: reftime
+CHARACTER(len=14) :: reftime_leps, reftime
+TYPE ensrun_t
+  CHARACTER(len=14) :: reftime
+  INTEGER :: lag
+END TYPE ensrun_t
+TYPE(ensrun_t),ALLOCATABLE :: ensrun(:)
 
 INTEGER :: ipoints, jpoints
 REAL :: lat_first, delta_j
 REAL,ALLOCATABLE,TARGET :: x(:,:,:,:,:,:), x2t(:,:), w(:)
 REAL,ALLOCATABLE :: buff(:)
+REAL,ALLOCATABLE :: dx(:,:), var(:)
+INTEGER,ALLOCATABLE :: ixc(:,:), nxc(:), irc(:)
 
-NAMELIST /setup/ nclust, nens, nmember, nstep, outputdir, clmethod, rmmethod
+NAMELIST /setup/ reftime_leps, nclust, nens, nmember, nstep, outputdir, clmethod, rmmethod
 NAMELIST /ensemble/ reftime, input_ctrl, input_pert, steps, lag
 
 CONTAINS
@@ -29,12 +36,15 @@ INTEGER :: i, fid, gid
 OPEN(10, file=namlfile, form='FORMATTED', status='OLD')
 READ(10, setup)
 
+ALLOCATE(ensrun(nens))
 DO i = 1, nens
   WRITE(*,'(A,I0,A,I0)')'Reading ensemble ',i,' of ',nens
   READ(10, ensemble)
+  ensrun(i)%reftime = reftime
+  ensrun(i)%lag = lag
 
-  CALL codes_open_file(fid, TRIM(input_ctrl), 'r')
   IF (i == 1) THEN
+    CALL codes_open_file(fid, TRIM(input_ctrl), 'r')
     CALL codes_grib_new_from_file(fid, gid)
 ! get once some general information about the dataset
     CALL codes_get(gid, 'numberOfPointsAlongAParallel', ipoints)
@@ -61,6 +71,10 @@ SUBROUTINE cla_alloc()
 ALLOCATE(x(gridsize,nstep,SIZE(levlist),SIZE(varlist),nmember,nens))
 ALLOCATE(w(gridsize*nstep*SIZE(levlist)*SIZE(varlist)))
 ALLOCATE(buff(gridsize))
+! after all the checks, irc should be dimensioned (nclust)
+ALLOCATE(dx(nmember*nens,nmember*nens), ixc(nmember*nens,nmember*nens), &
+ nxc(nmember*nens), irc(nclust))
+ALLOCATE(var(nclust+1))
 
 END SUBROUTINE cla_alloc
 
@@ -104,6 +118,38 @@ ENDDO
 CALL codes_close_file(fid)
 
 END SUBROUTINE cla_read_file
+
+
+SUBROUTINE cla_write_results()
+INTEGER :: i, lnens, lnmemb
+CHARACTER(len=512) :: outfile
+
+
+i = LEN_TRIM(outputdir)
+IF (i > 0) THEN
+  IF (outputdir(i:i) /= '/') THEN
+    outputdir(i+1:i+1) = '/'
+  ENDIF
+ENDIF
+
+DO i = 1, nclust
+  outfile = ''
+  WRITE(outfile,'(a,''clust_ana_result_'',a,''.'',i0,''.sh'')') &
+   TRIM(outputdir),TRIM(reftime_leps),i
+! nmember = 51
+! irc = 1 (control), 2 (member 1), ... 51 (member 50)
+  lnens = (irc(i)-1)/nmember + 1
+  lnmemb = MOD(irc(i)-1, nmember)
+
+  OPEN(10, file=outfile)
+  WRITE(10,'(''refdate='',a)')ensrun(lnens)%reftime(1:8)
+  WRITE(10,'(''reftime='',a)')TRIM(ensrun(lnens)%reftime(9:))
+  WRITE(10,'(''lag='',i0)')ensrun(lnens)%lag
+  WRITE(10,'(''elem='',i0)')lnmemb
+  CLOSE(10)
+ENDDO
+
+END SUBROUTINE cla_write_results
 
 
 FUNCTION firsttrue(v) RESULT(i)

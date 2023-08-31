@@ -36,6 +36,7 @@ INTEGER, INTENT(IN OUT)                  :: mode
 INTEGER :: i,j,k,ic,jc
 REAL    :: dsup, dinf, dmax, dmin, dint, dext, rmin,ratio
 
+irc = 0 ! to avoid undefined if it is longer than required
 ! compute distances between ensemble members
 DO i=1,n
 !         dx(i,i)=0.

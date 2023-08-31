@@ -9,8 +9,6 @@ REAL,ALLOCATABLE :: statbuff(:)
 REAL,POINTER :: x3(:,:,:), x2(:,:)
 
 REAL :: r0, rd, wt
-REAL,ALLOCATABLE :: dx(:,:), var(:)
-INTEGER,ALLOCATABLE :: ixc(:,:), nxc(:), irc(:)
 
 CALL cla_read_data('cluster_analysis.naml')
 
@@ -55,9 +53,6 @@ DO i = 2, SIZE(varlist)*SIZE(levlist)*nstep
   w((i-1)*gridsize+1:i*gridsize)=w(1:gridsize)
 END DO
 
-! after all the checks, irc should be dimensioned (nclust)
-ALLOCATE(dx(nmember*nens,nmember*nens), ixc(nmember*nens,nmember*nens), &
- nxc(nmember*nens), irc(nmember*nens))
 IF (clmethod == 1) THEN
   CALL wards(x2t, w, dx, ixc, nxc, nclust)
 ! restore x2t since it has been overwritten in wards
@@ -66,7 +61,6 @@ ELSE
   CALL clink(x2, w, dx, ixc, nxc, nclust)
 ENDIF
 
-ALLOCATE(var(nclust+1))
 CALL cstat(x2t, w, ixc, nxc, nclust, var)
 WRITE(71)x2t
 WRITE(72)w
@@ -89,6 +83,8 @@ DO ic=1,nclust
    END DO
 END DO
 WRITE(77)ixc
+
+CALL cla_write_results()
 
 
 END PROGRAM cleps_cluster_analysis
