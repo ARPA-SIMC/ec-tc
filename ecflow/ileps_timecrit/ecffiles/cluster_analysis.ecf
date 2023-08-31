@@ -13,18 +13,18 @@ cd $CLUST_ANA_DIR
 
 cat >cluster_analysis.naml <<EOF
 &setup
+ reftime_leps = '$DATE$TIME',
  nclust = $NLEPSMEMB,
  nens = $CLA_NENS,
  nmember = $NECEPSMEMB,
  nstep = $CLA_NSTEP,
- outputdir = '$CLUST_ANA_DIR/data'
+ outputdir = '$CLUST_ANA_DIR/data',
+ clmethod = 2
 /end
 EOF
 
 for lag in ${CLA_LAG[*]}; do
     prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
-    refdate=${prevdate:0:8}
-    reftime=${prevdate:8:4}
     steps=
     for st in ${CLA_STEP[*]}; do
         steps="$steps $st,"
@@ -32,7 +32,7 @@ for lag in ${CLA_LAG[*]}; do
 
     cat >>cluster_analysis.naml <<EOF
 &ensemble
- reftime = '$refdate$reftime',
+ reftime = '$prevdate',
  input_ctrl = '$RETRIEVE_CLA_DIR/data/ec_${refdate}${reftime}_ctrl.grib',
  input_pert = '$RETRIEVE_CLA_DIR/data/ec_${refdate}${reftime}_pert.grib',
  steps = $steps
@@ -42,4 +42,4 @@ EOF
 
 done
 
-#$BIN_DIR/cleps_cluster_analysis
+$BIN_DIR/cleps_cluster_analysis

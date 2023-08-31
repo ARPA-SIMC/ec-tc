@@ -96,13 +96,11 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     hincbd=$DET_HINCBD
 else # leps member
     # get cluster analysis information (to be reviewed)
+    # refdate, reftime, lag, elem
     . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
-    refdate=$giorno
-    reftime=$ora
-    lag=$lag
     if [ "$elem" = 0 ]; then
         marsinfo="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
-	marsinfo_ctrl=$marsinfo
+        marsinfo_ctrl=$marsinfo
     else
         marsinfo="CLASS=OD,STREAM=enfo,TYPE=pf,NUMBER=$elem,PADDING=0"
         marsinfo_ctrl="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
