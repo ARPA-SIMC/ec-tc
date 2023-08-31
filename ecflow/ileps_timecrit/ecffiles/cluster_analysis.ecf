@@ -25,6 +25,8 @@ EOF
 
 for lag in ${CLA_LAG[*]}; do
     prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
+    refdate=${prevdate:0:8}
+    reftime=${prevdate:8:4}
     steps=
     for st in ${CLA_STEP[*]}; do
         steps="$steps $st,"
