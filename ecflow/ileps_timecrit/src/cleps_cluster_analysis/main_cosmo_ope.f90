@@ -31,7 +31,7 @@ INTEGER :: ipippo, iiimax, iline
 ! Local parameters:  30351
 PARAMETER    ( ngp    = 30351 , nvar   =    4  &
     , nlev   =    3 , nstep  =    2  &
-    , nstepmax  =    3 , nem    =   51  &
+    , nstepmax  =    2 , nem    =   51  &
     , nens   =    2 , ngrib  =  nvar*nlev*nstepmax  &
     , ndim   =  ngp*nvar*nlev*nstepmax*nem*nens  &
     , nclmax =    51 , method =    2  &
@@ -104,7 +104,7 @@ DO iens=1,nens
       FILE=FILE(INDEX(FILE,'/')+1:)
    END DO
   
-   READ(FILE,'(i4,i2,i2,i2)') iyear(iens)  &
+   READ(FILE,'(3X,i4,i2,i2,i2)') iyear(iens)  &
         ,imonth(iens) ,iday(iens)  &
         ,itime(iens)
   
@@ -338,9 +338,17 @@ END IF
 
 ! statistics of clusters
 CALL cstat(nem*nens,numberOfValues*mgrib,xt,w, ixc,nxc,ncl,var)
+!WRITE(88)var(1:ncl+1)
+WRITE(81)xt
+WRITE(82)w
+WRITE(83)dx
+WRITE(84)ixc
+WRITE(85)nxc
 
 ! selection of representative members
 CALL selrm(nem*nens,numberOfValues*mgrib,x,w,dx, ncl,ixc,nxc,irc,mode)
+
+WRITE(86,*)irc
 
 ! sort of elements
 DO ic=1,ncl
@@ -354,6 +362,8 @@ DO ic=1,ncl
       END DO
    END DO
 END DO
+
+WRITE(87)ixc
 
 deallocate (x,xt,z)
 !----------------------------------------------------------------------
