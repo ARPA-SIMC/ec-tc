@@ -20,6 +20,18 @@ ecflow_ui
 . bin/stop-local
 ```
 
+At the moment the suite can already run all the jobs from the beginning up to and included CLEPS data
+retrieval on the ECMWF system. The cluster analysis works as well. The procedure is the following:
+
+```
+cd ecflow/ileps_timecrit
+# setup environment and modules
+. bin/start-atos
+# create and load the suite (answer `y` to the questions)
+./ectc.py
+# start ecflow_ui and play with the suite
+ecflow_ui
+```
 
 
 

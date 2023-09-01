@@ -15,11 +15,11 @@ LEVELIST=OFF,
 REPRES=GG,
 DATE=$refdate,
 TIME=$reftime,
-PARAM=Z/SST/SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
+PARAM=SST/SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo,
-TARGET="data/ec_${refdate}${reftime}_surf"
+TARGET="data/ec_${refdate}${reftime}_surf.0"
 
 RETRIEVE,
 LEVTYPE=ML,
@@ -31,17 +31,17 @@ FINIFINI
 
 cat >req_${refdate}${reftime}_ana2 << FINIFINI
 RETRIEVE,
-$anfc,
+$anfc_nolag,
 LEVTYPE=SFC,
 LEVELIST=OFF,
 REPRES=GG,
 DATE=$refdate,
 TIME=$reftime,
-PARAM=LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
+PARAM=Z/LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo_ctrl,
-TARGET="data/ec_${refdate}${reftime}_const"
+TARGET="data/ec_${refdate}${reftime}_const.0"
 
 FINIFINI
 
@@ -54,12 +54,13 @@ AREA=OFF,
 LEVELIST=OFF,
 PARAM=SWVL1/SWVL2/SWVL3/SWVL4,
 $marsinfo,
-TARGET="data/ec_${refdate}${reftime}_ggswv"
+TARGET="data/ec_${refdate}${reftime}_ggswv.0"
 
 RETRIEVE,
+$anfc_nolag,
 PARAM=SLT,
 $marsinfo_ctrl,
-TARGET="data/ec_${refdate}${reftime}_ggslt"
+TARGET="data/ec_${refdate}${reftime}_ggslt.0"
 
 FINIFINI
 
@@ -85,7 +86,7 @@ PARAM=T/U/V/Q/CLWC/CIWC/CRWC/CSWC,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo,
-TARGET="data/ec_${refdate}${reftime}_[STEP]_ml"
+TARGET="data/ec_${refdate}${reftime}_ml.[step]"
 
 RETRIEVE,
 PARAM=LNSP,
@@ -96,9 +97,10 @@ mars req_ml_$RETRIEVE_STOP
 rm -f req_ml_$RETRIEVE_STOP
 }
 
-#safe_rm_rf $RETRIEVE_IC_BC_DIR
-#mkdir -p $RETRIEVE_IC_BC_DIR
-#mkdir -p $RETRIEVE_IC_BC_DIR/data
+module load ecmwf-toolbox
+safe_rm_rf $RETRIEVE_IC_BC_DIR
+mkdir -p $RETRIEVE_IC_BC_DIR
+mkdir -p $RETRIEVE_IC_BC_DIR/data
 cd $RETRIEVE_IC_BC_DIR
 
 # target file names composed with leading zeroes
@@ -115,7 +117,7 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     hincbd=$DET_HINCBD
 else # leps member
     # get cluster analysis information (to be reviewed)
-    # refdate, reftime, lag, elem
+    # at the moment refdate, reftime, lag, elem
     . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
     if [ "$elem" = 0 ]; then
         marsinfo="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
@@ -130,22 +132,46 @@ else # leps member
     hincbd=$EPS_HINCBD
 fi
 
-if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis required
-    anfc="TYPE=AN"
+if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
+    if [ "$lag" = 0 ]; then
+        anfc="TYPE=AN"
+    else
+        anfc="TYPE=FC,STEP=$lag"
+    fi
+    anfc_nolag="TYPE=AN"
     geoinfo="${geoinfo0},TRUNCATION=NONE"
     retrieve_surf_ana_mars
     retrieve_ml_mars
-    # insert here SMI calculation on data/ec_${refdate}${reftime}_ggswv data/ec_${refdate}${reftime}_ggslt with output on data/ec_${refdate}${reftime}_ggswv data/ec_${refdate}${reftime}_smi
-    touch data/ec_${refdate}${reftime}_[STEP]_smi # to avoid failure
-    cat data/ec_${refdate}${reftime}_const data/ec_${refdate}${reftime}_surf data/ec_${refdate}${reftime}_[STEP]_ml data/ec_${refdate}${reftime}_[STEP]_smi > data/ec_${refdate}${reftime}_[STEP].grib
+    # compute_smi data/ec_${refdate}${reftime}_ggswv.0 data/ec_${refdate}${reftime}_ggslt.0 data/ec_${refdate}${reftime}_smi.0
+    touch data/ec_${refdate}${reftime}_smi.0 # temporary to avoid failure
+    if [ "$lag" = 0 ]; then
+        cat data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
+            data/ec_${refdate}${reftime}_smi.0 data/ec_${refdate}${reftime}_ml.0 \
+            >$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+    else
+# add data/ec_${refdate}${reftime}_smi.0 to the following grib_set list!!!
+        grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=0 \
+                 data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
+                 data/ec_${refdate}${reftime}_ml.$lag \
+                 $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+    fi
+    #   rm -f data/ec_${refdate}${reftime}_*.0 # needed?
 
-else
-    anfc="TYPE=FC,STEP=$(($RETRIEVE_START+$hincbd))/to/$RETRIEVE_STOP/by/$hincbd"
+else # multiple forecasts without analysis requested
+    anfc="TYPE=FC,STEP=$(($RETRIEVE_START+$hincbd+$lag))/to/$(($RETRIEVE_STOP+$lag))/by/$hincbd"
     geoinfo="${geoinfo0},TRUNCATION=AUTO"
     retrieve_ml_mars
-    mv data/ec_${refdate}${reftime}_[STEP]_ml data/ec_${refdate}${reftime}_[STEP].grib
-
+    for ofile in data/ec_${refdate}${reftime}_ml.*; do
+        step=${ofile##*.}
+        if [ "$lag" = 0 ]; then
+            mv $ofile $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $step).grib
+        else
+            clepstep=$(($step-$lag))
+            grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=$clepstep \
+                     $ofile \
+                     $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $clepstep).grib
+        fi
+#       rm -f $ofile # needed?
+    done
 fi
 
-# todo: merge the files in data/ in a single file for each step with the
-# desired name
