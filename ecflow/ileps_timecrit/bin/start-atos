@@ -1,0 +1,3 @@
+module load python3
+module load ecflow
+export ECF_HOST=ecflow-tc2-${USER}-001
