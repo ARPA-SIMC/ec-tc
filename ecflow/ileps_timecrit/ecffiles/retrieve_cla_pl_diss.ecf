@@ -2,7 +2,58 @@
 %include <sched_serial.h>
 %include <script_prolog.h>
 
-safe_rm_rf $GET_PL_DIR
+retrieve_pl_mars() {
 
-mkdir -p $GET_PL_DIR
-mkdir -p $GET_PL_DIR/data
+cat >req_clustana_pl << FINIFINI
+RETRIEVE,
+$anfc,
+LEVTYPE=PL,
+LEVELIST=850/700/500,
+REPRES=LL,
+DATE=$refdate,
+TIME=$reftime,
+PARAM=129/131/132/133,
+$geoinfo,
+EXPVER=$CLA_EXPID,
+CLASS=OD,
+TYPE=cf,
+STREAM=enfo,
+TARGET="data/ec_${refdate}${reftime}_ctrl.grib"
+
+RETRIEVE,
+TYPE=pf,
+NUMBER=1/to/50,
+TARGET="data/ec_${refdate}${reftime}_pert.grib"
+FINIFINI
+
+mars req_clustana_pl
+#rm -f req_clustana_pl
+}
+
+# for dateincr
+module load eclib
+
+safe_rm_rf $RETRIEVE_CLA_DIR
+mkdir -p $RETRIEVE_CLA_DIR
+mkdir -p $RETRIEVE_CLA_DIR/data
+cd $RETRIEVE_CLA_DIR
+
+geoinfo="AREA=$CLA_AREA,GRID=$CLA_GRID,TRUNCATION=AUTO"
+
+for lag in ${CLA_LAG[*]}; do
+    prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
+    filedate=${prevdate:0:12}
+    dissrefdate=${prevdate:4:8}
+    steps=
+    for st in ${CLA_STEP[*]}; do
+        prevdate=`dateincr -m $prevdate $(($st * 60))`
+        dissverdate=${prevdate:4:8}
+        grib_copy -w typeOfLevel=isobaricInhPa,type=cf,level=850/700/500 \
+          $EC_DISS/$DISSPREF$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
+        cat data/tmp.grib >> data/ec_${filedate}_ctrl.grib; rm -f data/tmp.grib
+        grib_copy -w typeOfLevel=isobaricInhPa,type=pf,level=850/700/500 \
+          $EC_DISS/$DISSPREF$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
+        cat data/tmp.grib >> data/ec_${filedate}_pert.grib; rm -f data/tmp.grib
+    done
+done
+# todo: subarea
