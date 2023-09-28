@@ -38,7 +38,14 @@ mkdir -p $RETRIEVE_CLA_DIR
 mkdir -p $RETRIEVE_CLA_DIR/data
 cd $RETRIEVE_CLA_DIR
 
-geoinfo="AREA=$CLA_AREA,GRID=$CLA_GRID,TRUNCATION=AUTO"
+area=${CLA_AREA#*=}
+suba="--flat=${area%%/*}"
+area=${area#*/}
+suba="$suba --ilon=${area%%/*}"
+area=${area#*/}
+suba="$suba --ilat=${area%%/*}"
+area=${area#*/}
+suba="$suba --flon=${area%%/*}"
 
 for lag in ${CLA_LAG[*]}; do
     prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
@@ -50,10 +57,17 @@ for lag in ${CLA_LAG[*]}; do
         dissverdate=${prevdate:4:8}
         grib_copy -w typeOfLevel=isobaricInhPa,type=cf,level=850/700/500 \
           $EC_DISS/$DISSPREF$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
-        cat data/tmp.grib >> data/ec_${filedate}_ctrl.grib; rm -f data/tmp.grib
+        $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
+          --trans-type=zoom --sub-type=coord data/tmp.grib data/tmp2.grib
+        cat data/tmp2.grib >> data/ec_${filedate}_ctrl.grib
+        rm -f data/tmp.grib data/tmp2.grib
+
         grib_copy -w typeOfLevel=isobaricInhPa,type=pf,level=850/700/500 \
           $EC_DISS/$DISSPREF$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
-        cat data/tmp.grib >> data/ec_${filedate}_pert.grib; rm -f data/tmp.grib
+        $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
+          --trans-type=zoom --sub-type=coord data/tmp.grib data/tmp2.grib
+        cat data/tmp2.grib >> data/ec_${filedate}_pert.grib
+        rm -f data/tmp.grib data/tmp2.grib
     done
 done
 # todo: subarea
