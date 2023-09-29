@@ -10,6 +10,7 @@ REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
 ICON_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
 BIN_DIR=$ECTC_WORK/bin
+SIMC_TOOLS="singularity exec -B $ECTC_WORK $BIN_DIR/simctools_simc_tools_r8.sif"
 
 # input data configuration
 CLA_AREA=60.0/-10.0/30.0/30.0

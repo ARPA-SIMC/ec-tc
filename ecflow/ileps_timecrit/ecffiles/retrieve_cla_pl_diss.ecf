@@ -2,34 +2,7 @@
 %include <sched_serial.h>
 %include <script_prolog.h>
 
-retrieve_pl_mars() {
-
-cat >req_clustana_pl << FINIFINI
-RETRIEVE,
-$anfc,
-LEVTYPE=PL,
-LEVELIST=850/700/500,
-REPRES=LL,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=129/131/132/133,
-$geoinfo,
-EXPVER=$CLA_EXPID,
-CLASS=OD,
-TYPE=cf,
-STREAM=enfo,
-TARGET="data/ec_${refdate}${reftime}_ctrl.grib"
-
-RETRIEVE,
-TYPE=pf,
-NUMBER=1/to/50,
-TARGET="data/ec_${refdate}${reftime}_pert.grib"
-FINIFINI
-
-mars req_clustana_pl
-#rm -f req_clustana_pl
-}
-
+module load ecmwf-toolbox
 # for dateincr
 module load eclib
 
@@ -46,6 +19,7 @@ area=${area#*/}
 suba="$suba --ilat=${area%%/*}"
 area=${area#*/}
 suba="$suba --flon=${area%%/*}"
+disspref=CTX
 
 for lag in ${CLA_LAG[*]}; do
     prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
@@ -56,18 +30,20 @@ for lag in ${CLA_LAG[*]}; do
         prevdate=`dateincr -m $prevdate $(($st * 60))`
         dissverdate=${prevdate:4:8}
         grib_copy -w typeOfLevel=isobaricInhPa,type=cf,level=850/700/500 \
-          $EC_DISS/$DISSPREF$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
-        $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
-          --trans-type=zoom --sub-type=coord data/tmp.grib data/tmp2.grib
-        cat data/tmp2.grib >> data/ec_${filedate}_ctrl.grib
-        rm -f data/tmp.grib data/tmp2.grib
+          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
+        cat data/tmp.grib >> data/ec_${filedate}_ctrl_full.grib
+        rm -f data/tmp.grib
 
         grib_copy -w typeOfLevel=isobaricInhPa,type=pf,level=850/700/500 \
-          $EC_DISS/$DISSPREF$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
-        $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
-          --trans-type=zoom --sub-type=coord data/tmp.grib data/tmp2.grib
-        cat data/tmp2.grib >> data/ec_${filedate}_pert.grib
-        rm -f data/tmp.grib data/tmp2.grib
+          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
+        cat data/tmp.grib >> data/ec_${filedate}_pert_full.grib
+        rm -f data/tmp.grib
     done
+    $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
+      --trans-type=zoom --sub-type=coord data/ec_${filedate}_ctrl_full.grib \
+      data/ec_${filedate}_ctrl.grib
+    $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
+      --trans-type=zoom --sub-type=coord data/ec_${filedate}_pert_full.grib \
+      data/ec_${filedate}_pert.grib
+    rm -f data/ec_${filedate}_ctrl_full.grib data/ec_${filedate}_pert_full.grib
 done
-# todo: subarea
