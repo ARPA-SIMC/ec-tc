@@ -6,7 +6,7 @@ export DATE=%YMD:%
 export TIME=%TIME:00%00
 export RETRIEVE_START=%RETRIEVE_START:%
 export RETRIEVE_STOP=%RETRIEVE_STOP:%
-export EC_DISS=%EC_DISS
+export EC_DISS=%EC_DISS%
 
 # a non-null $DISPLAY (from ecflow env) may interfere with some graphical processes
 # hopefully nobody needs it intentionally

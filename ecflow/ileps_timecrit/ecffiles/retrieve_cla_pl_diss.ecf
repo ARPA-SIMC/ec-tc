@@ -3,6 +3,7 @@
 %include <script_prolog.h>
 
 module load ecmwf-toolbox
+module load singularity
 # for dateincr
 module load eclib
 
@@ -11,14 +12,15 @@ mkdir -p $RETRIEVE_CLA_DIR
 mkdir -p $RETRIEVE_CLA_DIR/data
 cd $RETRIEVE_CLA_DIR
 
-area=${CLA_AREA#*=}
-suba="--flat=${area%%/*}"
+# convert syntax from mars to libsim (python .split()) 60.0/-10.0/30.0/30.0
+area=$CLA_AREA
+suba="--flat=${area%%%%/*}"
 area=${area#*/}
-suba="$suba --ilon=${area%%/*}"
+suba="$suba --ilon=${area%%%%/*}"
 area=${area#*/}
-suba="$suba --ilat=${area%%/*}"
+suba="$suba --ilat=${area%%%%/*}"
 area=${area#*/}
-suba="$suba --flon=${area%%/*}"
+suba="$suba --flon=${area%%%%/*}"
 disspref=CTX
 
 for lag in ${CLA_LAG[*]}; do
@@ -27,15 +29,15 @@ for lag in ${CLA_LAG[*]}; do
     dissrefdate=${prevdate:4:8}
     steps=
     for st in ${CLA_STEP[*]}; do
-        prevdate=`dateincr -m $prevdate $(($st * 60))`
-        dissverdate=${prevdate:4:8}
+        verdate=`dateincr -m $prevdate $(($st * 60))`
+        dissverdate=${verdate:4:8}
         grib_copy -w typeOfLevel=isobaricInhPa,type=cf,level=850/700/500 \
-          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
+          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID data/tmp.grib
         cat data/tmp.grib >> data/ec_${filedate}_ctrl_full.grib
         rm -f data/tmp.grib
 
         grib_copy -w typeOfLevel=isobaricInhPa,type=pf,level=850/700/500 \
-          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID > data/tmp.grib
+          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID data/tmp.grib
         cat data/tmp.grib >> data/ec_${filedate}_pert_full.grib
         rm -f data/tmp.grib
     done

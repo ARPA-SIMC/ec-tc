@@ -262,7 +262,7 @@ if __name__ == '__main__':
               "STHOST_BKUP": "ws2",
               "ECF_FILES": os.path.join(os.environ["PWD"], "ecffiles"),
               "ECF_INCLUDE": os.path.join(os.environ["PWD"], "include"),
-              "ECF_HOME": os.path.join(os.environ["TCWORK"], "ecflow"),
+              "ECF_HOME": os.path.join(os.environ["PWD"], "ecflow"),
               "ECF_STATUS_CMD": "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%",
               "ECF_KILL_CMD": "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%",
               "ECF_JOB_CMD": "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
@@ -271,7 +271,8 @@ if __name__ == '__main__':
               "ECTC_CONF": os.path.join(os.environ["PWD"], "conf"), # shell conf files to be sourced
 #              "ECTC_WORK": os.path.join(os.environ["PWD"], "work", "%STHOST%", "tc") # "fat" work dir, to become os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork")
               "ECTC_WORK": os.path.join(os.environ["TCWORK"], "work", "%SUITE%"),
-              "EC_DISS": os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork", "lb", "ecdiss")
+#              "EC_DISS": os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork", "lb", "ecdiss")
+              "EC_DISS": os.path.join("/ec", "%STHOST%", "tc", "zcl", "tcwork", "lb", "ecdiss")
     }
     conf={"deltaday": 1,
           "ecf_vars": ecf_vars, # defined above
@@ -279,7 +280,7 @@ if __name__ == '__main__':
           "forecastrange": 132,
           "subsuites": ("ana", "eps", "det"),
           "pretypes": ("mars", "diss"),
-          "predefault": "mars",
+          "predefault": "diss",
           "splitretrieve": "Y",
           "iconsoil": None,
           "membrange": range(5)}
