@@ -116,7 +116,7 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     refdate=$DATE
     reftime=$TIME
     lag=0
-    marsinfo=""
+    marsinfo="-w typeOfLevel!=isobaricInhPa"
 
     NLEV=$DET_NLEV
     expid=$DET_EXPID
@@ -133,13 +133,12 @@ else # leps member
     # at the moment refdate, reftime, lag, elem
     . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
     if [ "$elem" = 0 ]; then
-        marsinfo="type=cf"
+        marsinfo="-w type=cf,typeOfLevel!=isobaricInhPa"
         marsinfo_ctrl=$marsinfo
     else
-        marsinfo="type=pf,perturbationNumber=$elem"
-        marsinfo_ctrl="type=cf"
+        marsinfo="-w type=pf,perturbationNumber=$elem,typeOfLevel!=isobaricInhPa"
+        marsinfo_ctrl="-w type=cf,typeOfLevel!=isobaricInhPa"
     fi
-    geoinfo0="AREA=$EPS_AREA,GRID=$EPS_GRID"
     NLEV=$EPS_NLEV
     expid=$EPS_EXPID
     hincbd=$EPS_HINCBD
@@ -147,41 +146,40 @@ else # leps member
 fi
 
 if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
+    if [ "$ENS_MEMB" = 0 ]; then
+        dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
+	dissdate=${dissdate_const:0:15}1 # real analysis is stored with +1'
+    else   
     if [ "$lag" = 0 ]; then
         dissdate=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
+	dissdate_const=
     else
+        dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
 # add lag
         verdate=`dateincr -m $refdate$reftime (($lag * 60))`
         dissdate=${refdate:4:4}${reftime}${verdate:4:8}
     fi
-    dissdate=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
-    retrieve_surf_ana_mars
-    retrieve_ml_mars
-# TODO here
-    # compute_smi data/ec_${refdate}${reftime}_ggswv.0 data/ec_${refdate}${reftime}_ggslt.0 data/ec_${refdate}${reftime}_smi.0
-    touch data/ec_${refdate}${reftime}_smi.0 # temporary to avoid failure
+    grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib
+# todo change next line deoending on dissdate_const
+    cat $EC_DISS/$disspref$dissdate_const$expid >> tmp.grib
+
+# TODO here compute SMI
     if [ "$lag" = 0 ]; then
-        cat data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
-            data/ec_${refdate}${reftime}_smi.0 data/ec_${refdate}${reftime}_ml.0 \
-            >$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+        mv tmp.grib $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
     else
-# add data/ec_${refdate}${reftime}_smi.0 to the following grib_set list!!!
-        grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=0 \
-                 data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
-                 data/ec_${refdate}${reftime}_ml.$lag \
-                 $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+        grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=0 tmp.grib \
+          $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+	rm -f tmp.grib
     fi
-    #   rm -f data/ec_${refdate}${reftime}_*.0 # needed?
 
 else # multiple forecasts without analysis requested
     for range in `seq $(($RETRIEVE_START+$hincbd+$lag)) $hincbd $(($RETRIEVE_STOP+$lag))`; do
         verdate=`dateincr -m $refdate$reftime (($range * 60))`
         dissdate=${refdate:4:4}${reftime}${verdate:4:8}
-	grib_copy -w typeOfLevel!=isobaricInhPa,$marsinfo $ECDISS/$disspref$dissdate$expver data/ec_${refdate}${reftime}_ml.[step]
+	grib_copy $marsinfo $ECDISS/$disspref$dissdate$expver tmp.grib.[step]
     done
 
-#    retrieve_ml_mars
-    for ofile in data/ec_${refdate}${reftime}_ml.*; do
+    for ofile in tmp.grib.*; do
         step=${ofile##*.}
         if [ "$lag" = 0 ]; then
             mv $ofile $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $step).grib
@@ -191,7 +189,7 @@ else # multiple forecasts without analysis requested
                      $ofile \
                      $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $clepstep).grib
         fi
-#       rm -f $ofile # needed?
+#       rm -f $ofile
     done
 fi
 
