@@ -124,9 +124,9 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     if [ -z "$disspref" ]; then
         if [ "$TIME" = "0000" -o "$TIME" = "1200" ]; then
             disspref=CTD
-	else
-	    disspref=CTS
-	fi
+        else
+            disspref=CTS
+        fi
     fi
 else # leps member
     # get cluster analysis information (to be reviewed)
@@ -148,20 +148,22 @@ fi
 if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
     if [ "$ENS_MEMB" = 0 ]; then
         dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
-	dissdate=${dissdate_const:0:15}1 # real analysis is stored with +1'
+        dissdate=${dissdate_const:0:15}1 # real analysis is stored with +1'
     else   
-    if [ "$lag" = 0 ]; then
-        dissdate=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
-	dissdate_const=
-    else
-        dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
+        if [ "$lag" = 0 ]; then
+            dissdate=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
+            dissdate_const=
+        else
+            dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
 # add lag
-        verdate=`dateincr -m $refdate$reftime (($lag * 60))`
-        dissdate=${refdate:4:4}${reftime}${verdate:4:8}
+            verdate=`dateincr -m $refdate$reftime (($lag * 60))`
+            dissdate=${refdate:4:4}${reftime}${verdate:4:8}
+        fi
+        grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib
     fi
-    grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib
-# todo change next line deoending on dissdate_const
-    cat $EC_DISS/$disspref$dissdate_const$expid >> tmp.grib
+    if [ -n "$dissdate_const" ]; then
+        cat $EC_DISS/$disspref$dissdate_const$expid >> tmp.grib
+    fi
 
 # TODO here compute SMI
     if [ "$lag" = 0 ]; then
@@ -169,14 +171,14 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
     else
         grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=0 tmp.grib \
           $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
-	rm -f tmp.grib
+        rm -f tmp.grib
     fi
 
 else # multiple forecasts without analysis requested
     for range in `seq $(($RETRIEVE_START+$hincbd+$lag)) $hincbd $(($RETRIEVE_STOP+$lag))`; do
-        verdate=`dateincr -m $refdate$reftime (($range * 60))`
+        verdate=`dateincr -m $refdate$reftime $(($range * 60))`
         dissdate=${refdate:4:4}${reftime}${verdate:4:8}
-	grib_copy $marsinfo $ECDISS/$disspref$dissdate$expver tmp.grib.[step]
+        grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib.[step]
     done
 
     for ofile in tmp.grib.*; do
