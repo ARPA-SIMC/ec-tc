@@ -268,19 +268,20 @@ if __name__ == '__main__':
               "ECF_JOB_CMD": "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
               "ECF_TRIES": "2",
               "ECTC_ENS_MEMB": "0",
+              "ECTC_BASE": os.environ["PWD"], # base for possible subdirs
               "ECTC_CONF": os.path.join(os.environ["PWD"], "conf"), # shell conf files to be sourced
 #              "ECTC_WORK": os.path.join(os.environ["PWD"], "work", "%STHOST%", "tc") # "fat" work dir, to become os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork")
               "ECTC_WORK": os.path.join(os.environ["TCWORK"], "work", "%SUITE%"),
 #              "EC_DISS": os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork", "lb", "ecdiss")
               "EC_DISS": os.path.join("/ec", "%STHOST%", "tc", "zcl", "tcwork", "lb", "ecdiss")
     }
-    conf={"deltaday": 1,
+    conf={"deltaday": 30,
           "ecf_vars": ecf_vars, # defined above
           "hours": range(0, 24, 12), # (0,24,24) to run only at 00
           "forecastrange": 132,
           "subsuites": ("ana", "eps", "det"),
           "pretypes": ("mars", "diss"),
-          "predefault": "diss",
+          "predefault": "mars",
           "splitretrieve": "Y",
           "iconsoil": None,
           "membrange": range(5)}

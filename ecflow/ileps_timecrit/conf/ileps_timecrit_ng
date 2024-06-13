@@ -1,6 +1,7 @@
 # this script is sourced with set -a (automatic export), so there is
 # no need to export every single variable
 
+CONST_DIR=$ECTC_BASE/const
 ICONSOIL_DIR=$ECTC_WORK/iconsoil
 RETRIEVE_CLA_DIR=$ECTC_WORK/retrieve_cla_pl
 CLUST_ANA_DIR=$ECTC_WORK/clust_ana

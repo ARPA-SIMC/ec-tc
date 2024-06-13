@@ -1,4 +1,5 @@
 
+export ECTC_BASE=%ECTC_BASE%
 export ECTC_CONF=%ECTC_CONF%
 export ECTC_WORK=%ECTC_WORK%
 
