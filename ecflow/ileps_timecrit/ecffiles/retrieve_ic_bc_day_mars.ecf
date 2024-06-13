@@ -1,5 +1,5 @@
 %include <sched_prolog.h>
-%include <sched_serial.h>
+%include <sched_serial_mem.h>
 %include <script_prolog.h>
 
 # retrieve initial surface/soil fields, mostly on target grid,
@@ -37,7 +37,8 @@ LEVELIST=OFF,
 REPRES=GG,
 DATE=$refdate,
 TIME=$reftime,
-PARAM=Z/LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
+#PARAM=Z/LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
+PARAM=Z/LSM/SR/SLT,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo_ctrl,
@@ -52,12 +53,16 @@ LEVTYPE=SFC,
 GRID=AV,
 AREA=OFF,
 LEVELIST=OFF,
+DATE=$refdate,
+TIME=$reftime,
 PARAM=SWVL1/SWVL2/SWVL3/SWVL4,
 $marsinfo,
 TARGET="data/ec_${refdate}${reftime}_ggswv.0"
 
 RETRIEVE,
 $anfc_nolag,
+DATE=$refdate,
+TIME=$reftime,
 PARAM=SLT,
 $marsinfo_ctrl,
 TARGET="data/ec_${refdate}${reftime}_ggslt.0"
@@ -95,6 +100,41 @@ FINIFINI
 
 mars req_ml_$RETRIEVE_STOP
 rm -f req_ml_$RETRIEVE_STOP
+}
+
+
+compute_smi () {
+# arguments: <ggswv file> <ggslt file> <output file>
+
+smi_equation="(swvl-0.059)/(0.242-0.059)*(slt=1)+(swvl-0.151)/(0.346-0.151)*(slt=2)+(swvl-0.133)/(0.382-0.133)*(slt=3)+(swvl-0.279)/(0.448-0.279)*(slt=4)+(swvl-0.335)/(0.541-0.335)*(slt=5)+(swvl-0.267)/(0.662-0.267)*(slt=6)+(swvl-0.151)/(0.346-0.151)*(slt=7)"
+
+tmpgrib=tmpgrib_$RETRIEVE_STOP
+# retrieve slt
+cat >req_smicomp_$RETRIEVE_STOP << FINIFINI
+read,   source   = "$2",
+        param    = slt, fieldset = slt
+FINIFINI
+# retrieve swvl and compute smi for each soil level
+for lv in $(seq 4); do
+  cat >>req_smicomp_$RETRIEVE_STOP << FINIFINI
+read,   source   = "$1",
+        param    = swvl$lv, fieldset = swvl
+        compute, fieldset = smi$lv,
+        formula  = "$smi_equation"
+        write, fieldset = smi$lv, target = "$tmpgrib"
+FINIFINI
+done
+# convert from archived (reduced) to regular grid for each soil level
+for lv in $(seq 4); do
+  cat >>req_smicomp_$RETRIEVE_STOP << FINIFINI
+read,  param = swvl$lv, fieldset = smi$lv, source = "$tmpgrib", $geoinfo0
+        write, fieldset = smi$lv, target = "$3"
+FINIFINI
+done
+
+mars req_smicomp_$RETRIEVE_STOP
+rm -f $tmpgrib
+
 }
 
 module load ecmwf-toolbox
@@ -142,18 +182,19 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
     geoinfo="${geoinfo0},TRUNCATION=NONE"
     retrieve_surf_ana_mars
     retrieve_ml_mars
-    # compute_smi data/ec_${refdate}${reftime}_ggswv.0 data/ec_${refdate}${reftime}_ggslt.0 data/ec_${refdate}${reftime}_smi.0
-    touch data/ec_${refdate}${reftime}_smi.0 # temporary to avoid failure
+    compute_smi data/ec_${refdate}${reftime}_ggswv.0 data/ec_${refdate}${reftime}_ggslt.0 data/ec_${refdate}${reftime}_smi.0
+    # touch data/ec_${refdate}${reftime}_smi.0 # temporary to avoid failure
+    # add grib_set -s editionNumber=2,scanningMode=0
     if [ "$lag" = 0 ]; then
-        cat data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
+        grib_set -s editionNumber=2,scanningMode=0 \
+            data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
             data/ec_${refdate}${reftime}_smi.0 data/ec_${refdate}${reftime}_ml.0 \
-            >$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+            $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
     else
-# add data/ec_${refdate}${reftime}_smi.0 to the following grib_set list!!!
-        grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=0 \
-                 data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
-                 data/ec_${refdate}${reftime}_ml.$lag \
-                 $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+        grib_set -s editionNumber=2,scanningMode=0,dataDate=$DATE,dataTime=$TIME,stepRange=0 \
+            data/ec_${refdate}${reftime}_const.0 data/ec_${refdate}${reftime}_surf.0 \
+            data/ec_${refdate}${reftime}_smi.0 data/ec_${refdate}${reftime}_ml.$lag \
+            $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
     fi
     #   rm -f data/ec_${refdate}${reftime}_*.0 # needed?
 
@@ -168,8 +209,8 @@ else # multiple forecasts without analysis requested
         else
             clepstep=$(($step-$lag))
             grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=$clepstep \
-                     $ofile \
-                     $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $clepstep).grib
+                 $ofile \
+                 $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $clepstep).grib
         fi
 #       rm -f $ofile # needed?
     done
