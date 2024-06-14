@@ -10,7 +10,7 @@ RETRIEVE_IC_BC_DIR_COMMON=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
 ICON_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
-BIN_DIR=$ECTC_WORK/bin
+BIN_DIR=$TCWORK/bin
 SIMC_TOOLS="singularity exec -B $ECTC_WORK $BIN_DIR/simctools_simc_tools_r8.sif"
 
 # input data configuration

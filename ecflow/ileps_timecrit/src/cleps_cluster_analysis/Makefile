@@ -18,8 +18,8 @@ cleps_cluster_analysis.o: cla_inputdata.o cla_stats.o cla_algorithms.o
 cleps_cluster_analysis: cla_inputdata.o cla_stats.o cla_algorithms.o
 
 install: all
-	mkdir -p $(TCWORK)
-	# continue here
+	install -d $(TCWORK)/bin
+	install -t $(TCWORK)/bin $(PROGRAMS)
 
 %: %.o
 	$(FC) $(LDFLAGS) -o $@ $^
