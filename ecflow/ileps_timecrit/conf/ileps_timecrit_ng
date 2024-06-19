@@ -70,3 +70,8 @@ safe_rm_rf() {
     done
 
 }
+
+conf_template() {
+  $ECTC_BASE/bin/ac_templater.py $ECTC_CONF/$1.in > $1
+}
+
