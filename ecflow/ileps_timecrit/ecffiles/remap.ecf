@@ -6,7 +6,7 @@ safe_rm_rf $REMAP_DIR
 
 mkdir -p $REMAP_DIR
 mkdir -p $REMAP_DIR/data
-
+cd $REMAP_DIR
 
 # data in $RETRIEVE_IC_BC_DIR_COMMON/data/ec_202308300000+0132.grib
 # ec_${DATE}${TIME}+$(printf "%%04d" $clepstep).grib
@@ -35,10 +35,10 @@ export ECCODES_SAMPLES_PATH=$DWDPERM/grib_api_def/ec-2.23.0/samples-19.1
 
 # file names
 export IN_GRID=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
-export OUT_GRID=$ECTC_CONST/icon-leps-7km_DOM01.nc
+export OUT_GRID=$CONST_DIR/icon-leps-7km_DOM01.nc
 
-
-for trange in `seq 0 3 132`; do
+pwd
+for trange in `seq 0 3 6`; do # 132
     export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).grib
     export OUT_FILE=$REMAP_DIR/data/lbc_${DATE}${TIME}+$(printf "%%04d" $trange).nc
     conf_template iconremap_BC.nml

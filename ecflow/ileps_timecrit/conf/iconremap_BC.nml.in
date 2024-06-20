@@ -19,6 +19,11 @@
  outputname     = "V"
  intp_method = 3
 /
+&input_field_nml  ! vertical velocity
+ inputname      = "OMEGA"
+ outputname     = "W"
+ intp_method = 3
+/
 &input_field_nml  ! temperature
  inputname      = "T"
  outputname     = "T"
