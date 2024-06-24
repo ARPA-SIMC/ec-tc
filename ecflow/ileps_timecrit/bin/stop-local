@@ -1,3 +1,0 @@
-ecflow_stop.sh -p $ECF_PORT
-unset ECF_PORT ECF_HOST
-PATH=${PATH#$PWD/bin:}

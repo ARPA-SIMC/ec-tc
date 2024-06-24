@@ -1,5 +1,0 @@
-export ECF_HOST=localhost
-export ECF_PORT=3140
-unset ECF_PASSWD
-PATH=$PWD/bin:$PATH
-ecflow_start.sh -p $ECF_PORT

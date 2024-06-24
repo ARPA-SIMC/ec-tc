@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Wrapper for running ecflow client commands or python scripts
+
+module load ecflow
+export ECF_HOST=ecflow-tc2-${USER}-001
+exec "$@"
