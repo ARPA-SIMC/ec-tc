@@ -1,0 +1,203 @@
+&remap_nml
+ in_grid_filename  = "@IN_GRID@"
+ in_filename       = "@IN_FILE@"
+ in_type           = 3
+ out_grid_filename = "@OUT_GRID@"
+ out_filename      = "@OUT_FILE@"
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage.tmp"
+/
+&input_field_nml  ! horiz. wind comp. u
+ inputname      = "U"
+ outputname     = "U"
+ intp_method = 3
+/
+&input_field_nml  ! horiz. wind comp. v
+ inputname      = "V"
+ outputname     = "V"
+ intp_method = 3
+/
+&input_field_nml  ! vertical velocity
+ inputname      = "OMEGA"
+ outputname     = "W"
+ intp_method = 3
+/
+&input_field_nml  ! temperature
+ inputname      = "T"
+ outputname     = "T"
+ intp_method = 3
+/
+&input_field_nml  ! specific humidity
+ inputname      = "QV"
+ outputname     = "QV"
+ intp_method = 3
+/
+&input_field_nml  ! cloud liquid water content
+ inputname      = "CLWC"
+ outputname     = "QC"
+ intp_method = 3
+/
+&input_field_nml  ! cloud ice content
+ inputname      = "CIWC"
+ outputname     = "QI"
+ intp_method = 3
+/
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR"
+ intp_method = 3
+/
+&input_field_nml  ! cloud liquid water content
+ inputname      = "CLWC"
+ outputname     = "QC"
+ intp_method = 3
+/
+&input_field_nml  ! cloud ice content
+ inputname      = "CIWC"
+ outputname     = "QI"
+ intp_method = 3
+/
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR"
+ intp_method = 3
+/
+&input_field_nml  ! snow water content
+ inputname      = "CSWC"
+ outputname     = "QS"
+ intp_method = 3
+/
+&input_field_nml  ! surface pressure
+ inputname      = "LNSP"
+ outputname     = "LNPS" 
+ intp_method = 3
+/
+&input_field_nml  ! geopotential
+ inputname      = "FI"
+ outputname     = "GEOP_ML" 
+ intp_method = 3
+ loptional      = .TRUE.
+/
+!
+! Surface and soil parameters (grib2 or grib1)
+!
+&input_field_nml  ! geopotential
+ inputname      = "FIS"
+ outputname     = "GEOP_SFC" 
+ intp_method = 3  
+! inputname      = "Z"
+! code           = 129
+/
+&input_field_nml  ! sea surface temperature
+ inputname      = "SST"
+ outputname     = "SST" 
+ intp_method = 3
+! code           = 34
+/
+&input_field_nml  ! sea-ice cover
+ inputname      = "CI"
+ outputname     = "CI" 
+ intp_method = 3
+! inputname      = "CI"
+! code           = 31
+/
+&input_field_nml  ! snow temperature
+ inputname      = "TSN"
+ outputname     = "T_SNOW" 
+ intp_method = 3
+! code           = 238
+/
+&input_field_nml  ! water content of snow
+ inputname      = "SD"
+ outputname     = "W_SNOW" 
+ intp_method = 3
+! code           = 141
+/
+&input_field_nml  ! density of snow
+ inputname      = "RHO_SNOW"
+ outputname     = "RHO_SNOW" 
+ intp_method = 3
+! inputname      = "RSN"
+! code           = 33
+/
+&input_field_nml  ! snow albedo
+ inputname      = "ASN"
+ outputname     = "ALB_SNOW" 
+ intp_method = 3
+! code           = 32
+/
+&input_field_nml  ! skin temperature
+ inputname      = "SKT"
+ outputname     = "SKT" 
+ intp_method = 3
+! code           = 235
+/
+&input_field_nml  ! soil temperature level 1
+ inputname      = "STL1"
+ outputname     = "STL1" 
+ intp_method = 3
+! code           = 139
+/
+&input_field_nml  ! soil temperature level 2
+ inputname      = "STL2"
+ outputname     = "STL2" 
+ intp_method = 3
+! code           = 170
+/
+&input_field_nml  ! soil temperature level 3
+ inputname      = "STL3"
+ outputname     = "STL3" 
+ intp_method = 3
+! code           = 183
+/
+&input_field_nml  ! soil temperature level 4
+ inputname      = "STL4"
+ outputname     = "STL4" 
+ intp_method = 3
+! code           = 236
+/
+&input_field_nml  ! soil moisture index layer 1
+ inputname      = "SWVL1"
+ outputname     = "SMIL1" 
+ intp_method = 3
+! code           = 80
+/
+&input_field_nml  ! soil moisture index layer 2
+ inputname      = "SWVL2"
+ outputname     = "SMIL2" 
+ intp_method = 3
+! code           = 81
+/
+&input_field_nml  ! soil moisture index layer 3
+ inputname      = "SWVL3"
+ outputname     = "SMIL3" 
+ intp_method = 3
+! code           = 82
+/
+&input_field_nml  ! soil moisture index layer 4
+ inputname      = "SWVL4"
+ outputname     = "SMIL4" 
+ intp_method = 3
+! code           = 83
+/
+&input_field_nml  ! water cont. of interception storage
+ inputname      = "SRC"
+ outputname     = "W_I" 
+ intp_method = 3
+! code           = 198 
+/
+&input_field_nml  ! Land/sea mask
+ inputname      = "LSM"
+ outputname     = "LSM" 
+ intp_method = 3
+! code           = 172 
+/
+&input_field_nml  ! surface roughness
+ inputname      = "SR"
+ outputname     = "Z0" 
+ intp_method = 3
+! inputname      = "SR"
+! code           = 173
+/
