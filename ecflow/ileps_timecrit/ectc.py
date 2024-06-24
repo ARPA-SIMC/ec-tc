@@ -260,7 +260,7 @@ if __name__ == '__main__':
               "WSHOST": "hpc",
               "STHOST": "ws1",
               "STHOST_BKUP": "ws2",
-              "ECF_FILES": os.path.join(os.environ["PWD"], "ecffiles"),
+              "ECF_FILES": os.path.join(os.environ["PWD"], "jobs"),
               "ECF_INCLUDE": os.path.join(os.environ["PWD"], "include"),
               "ECF_HOME": os.path.join(os.environ["PWD"], "ecflow"),
               "ECF_STATUS_CMD": "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%",
