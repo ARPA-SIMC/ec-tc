@@ -143,10 +143,17 @@ class TcEcfVars(TcFamily):
 class TcSuiteTime(TcFamily):
     def add_to(self, node):
         hour = []
+        if self.conf.get("suitestart", None) is None:
+            start = datetime.datetime.now() - datetime.timedelta(days=self.conf.get("suiteback", 5))
+        else:
+            start = self.conf["suitestart"]
+        if self.conf.get("suitestop", None) is None:
+            stop = start + datetime.timedelta(days=self.conf.get("suiteduration", 365))
+        else:
+            stop = self.conf["suitestop"]
+
         day = node.add_family("day").add_repeat(
-            ecflow.RepeatDate("YMD",
-                              int((datetime.datetime.now()-datetime.timedelta(days=self.conf["deltaday"])).strftime("%Y%m%d")),
-                              int((datetime.datetime.now()+datetime.timedelta(days=5000)).strftime("%Y%m%d"))))
+            ecflow.RepeatDate("YMD", int(start.strftime("%Y%m%d")), int(stop.strftime("%Y%m%d"))))
         for h in rangeexpand(self.conf["hours"]):
             famname = "hour_" + ("%02d" % h)
             hour.append(day.add_family(famname).add_variable("TIME", "%02d" % h))
@@ -176,6 +183,9 @@ class TcStartSuite(TcFamily):
             fam = node.add_family("start_suite_"+sub)
             fam.add_task("startileps_tc_"+sub)
             fam.add_variable("ECF_DUMMY_TASK", "Y")
+            if self.conf.get("timecrit", False):
+                fam.add_defstatus(ecflow.Defstatus("complete"))
+
 
 
 # Add a pre family (data retrieval for cluster analysis, cluster
@@ -200,7 +210,7 @@ class TcPre(TcFamily):
                 elif eps_memb == 0:
                     trig = "../../start_suite_det == complete"
                 memfam = get.add_family(fname).add_variable("ECTC_ENS_MEMB", str(eps_memb)).add_trigger(trig)
-                if self.conf.get("splitretrieve", None) is not None:
+                if self.conf.get("splitretrieve", False):
                     memfam.add_task("setup_retrieve")
                     # add an analysis family
                     memfam.add_family(f"retrieve_ana").add_task(f"retrieve_ic_bc_day_{pre}").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0").add_trigger("../setup_retrieve == complete")
@@ -273,7 +283,8 @@ if __name__ == '__main__':
     ileps = TcSuite(suitename)
     # add defined ECF vars
     TcEcfVars(conf).add_to(ileps.suite)
-    TcEmergency(conf).add_to(ileps.suite)
+    if self.conf.get("timecrit", False):
+        TcEmergency(conf).add_to(ileps.suite)
     # add timing loop
     suitetime = TcSuiteTime(conf)
     for timeloop in suitetime.add_to(ileps.suite):

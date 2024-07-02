@@ -11,6 +11,7 @@ ECF_STATUS_CMD = "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%"
 ECF_KILL_CMD = "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%"
 ECF_JOB_CMD = "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%"
 ECF_TRIES = "2"
+ECTC_BASE = "$ECTC_BASE" # from user profile, repeated here because it could be lost in the suite env
 ECTC_ENS_MEMB = "0"
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
 ECTC_WORK = "$TCWORK/work/%SUITE%" # "/ec/%STHOST%/tc/$USER/tcwork/%SUITE%" ?
@@ -18,11 +19,15 @@ EC_DISS = "/ec/%STHOST%/tc/zcl/tcwork/lb/ecdiss" # $USER - zcl?
 
 [suiteconf]
 
-deltaday = 30
+# suitestart = 2024-01-01 00:00:00Z
+suiteback = 5
+suitestop = 2035-01-01 00:00:00Z
+# suiteduration = 365
 hours = "0-12:12" # "0" to run only at 00
 forecastrange = 132
 subsuites = ["ana", "eps", "det"]
 pretypes = ["mars", "diss"]
 predefault = "mars"
-splitretrieve = "Y"
+splitretrieve = true
 membrange = "0-4"
+timecrit = true

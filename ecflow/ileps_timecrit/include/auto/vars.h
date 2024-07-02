@@ -1,5 +1,6 @@
 # enable autoexport
 set -a
+ECTC_BASE=%ECTC_BASE%
 ECTC_CONF=%ECTC_CONF%
 ECTC_WORK=%ECTC_WORK%
 
