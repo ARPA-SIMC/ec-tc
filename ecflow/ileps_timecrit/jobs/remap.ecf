@@ -26,15 +26,14 @@ export IN_GRID=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
 # initial condition
 export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
 export OUT_FILE=$REMAP_DIR/data/ic_${DATE}${TIME}.nc
-
+conf_template iconremap_IC.nml
 $BIN_DIR/iconremap -vvv --remap_nml=iconremap_IC.nml
+
 if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     hincbd=$DET_HINCBD
 else
     hincbd=$EPS_HINCBD
 fi
-
-conf_template iconremap_IC.nml
 
 # boundary conditions
 for trange in `seq 0 $hincbd $MODEL_STOP`; do
