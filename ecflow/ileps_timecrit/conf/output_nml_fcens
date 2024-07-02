@@ -1,0 +1,66 @@
+! Complete domain; 2km; pressure levels + surface; only forecast
+
+&output_nml
+! Pressure levels
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,@MODEL_STOP@,1.       ! start, end, increment
+ steps_per_file               = 1
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_plev_all2km_A2P0"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ pl_varlist                   = temp,qv,geopot
+ p_levels                     = 50000.,70000.,85000.
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
+ remap                        = 1   !0 in case unstructured grid is required                
+ reg_lon_def                  = 3.0,0.025,22.001
+ reg_lat_def                  = 33.7,0.02,48.901
+/
+
+&output_nml
+! Surface
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,@MODEL_STOP@,1.       ! start, end, increment
+ steps_per_file               = 1
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_surf_all2km_A2P0"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+! aggiunto t_seasfc da Thomas, sostituiti tqc,tqi,tqr,tqs,tqg con twater
+ ml_varlist                   = t_2m,td_2m,u_10m,v_10m,gust10,
+                                tot_prec,rain_con,rain_gsp,snow_con,snow_gsp,graupel_gsp,clct,
+                                asob_s,pres_msl,pres_sfc,
+                                cape_ml,lpi
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
+ remap                        = 1   !0 in case unstructured grid is required                
+ reg_lon_def                  = 3.0,0.025,22.001
+ reg_lat_def                  = 33.7,0.02,48.901
+/
+
+&output_nml
+! Static fields: topo+lsm
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1                                                        
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,0.,1.                 ! start, end, increment        
+ steps_per_file               = 1                                                      
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.                                                         
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_static_all2km_A2P0"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ ml_varlist                   = topography_c,fr_land
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased         
+ remap                        = 1   !0 in case unstructured grid is required                
+ reg_lon_def                  = 3.0,0.025,22.001
+ reg_lat_def                  = 33.7,0.02,48.901
+/
