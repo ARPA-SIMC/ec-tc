@@ -2,8 +2,9 @@
 
 import ecflow
 import math
-import os
+import os, sys
 import datetime
+import tomllib
 
 # some utility routines:
 
@@ -12,8 +13,11 @@ def rangeexpand(txt):
     lst = []
     for r in txt.split(','):
         if '-' in r[1:]:
+            step = 1
+            if ':' in r:
+                r, step = r.split(':')
             r0, r1 = r[1:].split('-', 1)
-            lst += range(int(r[0] + r0), int(r1) + 1)
+            lst += range(int(r[0] + r0), int(r1) + 1, int(step))
         else:
             lst.append(int(r))
     return lst
@@ -131,8 +135,8 @@ class TcFamily:
 # Add the basic ECF_ variables (not really a family)
 class TcEcfVars(TcFamily):
     def add_to(self, node):
-        for var in conf["ecf_vars"]:
-            node.add_variable(var, conf["ecf_vars"][var])
+        for var in conf["ecfvars"]:
+            node.add_variable(var, conf["ecfvars"][var])
 
 
 # Add the root family for looping on days and hours
@@ -143,7 +147,7 @@ class TcSuiteTime(TcFamily):
             ecflow.RepeatDate("YMD",
                               int((datetime.datetime.now()-datetime.timedelta(days=self.conf["deltaday"])).strftime("%Y%m%d")),
                               int((datetime.datetime.now()+datetime.timedelta(days=5000)).strftime("%Y%m%d"))))
-        for h in self.conf["hours"]:
+        for h in rangeexpand(self.conf["hours"]):
             famname = "hour_" + ("%02d" % h)
             hour.append(day.add_family(famname).add_variable("TIME", "%02d" % h))
         return hour # further on the user has to loop on hour for filling the suite
@@ -189,7 +193,7 @@ class TcPre(TcFamily):
             fam.add_task(f"retrieve_cla_pl_{pre}").add_trigger("../start_suite_eps == complete")
             fam.add_task("cluster_analysis").add_trigger(f"./retrieve_cla_pl_{pre} == complete")
             get = fam.add_family("retrieve_ic_bc") # inlimit /ileps_timecrit:get_ml_limit
-            for eps_memb in self.conf["membrange"]:
+            for eps_memb in rangeexpand(self.conf["membrange"]):
                 fname = membname(eps_memb, "eps_member_")
                 if eps_memb > 0: # eps membs depend on cluster analysis, det does not
                     trig = "../cluster_analysis == complete" # rather "../cluster_analysis == complete"
@@ -223,7 +227,7 @@ class TcIconSoil(TcFamily):
 class TcRun(TcFamily):
     def add_to(self, node):
         fam = node.add_family("iconrun") # was "lokal", task setup_lokal_det deleted!
-        for eps_memb in self.conf["membrange"]:
+        for eps_memb in rangeexpand(self.conf["membrange"]):
             fname = membname(eps_memb, "eps_member_")
             run = fam.add_family(fname)
             run.add_variable("ECTC_ENS_MEMB", str(eps_memb))
@@ -239,7 +243,7 @@ class TcRegribFdb(TcFamily):
     def add_to(self, node):
         fam = node.add_family("regrib_and_fdb") # task regrib_setup deleted!
         # add clst_info family
-        for eps_memb in self.conf["membrange"]:
+        for eps_memb in rangeexpand(self.conf["membrange"]):
             fname = membname(eps_memb, "eps_member_")
             raf = fam.add_family(fname)
             raf.add_variable("ECTC_ENS_MEMB", str(eps_memb))
@@ -255,39 +259,18 @@ class TcRegribFdb(TcFamily):
 
 if __name__ == '__main__':
     interactive = True
+    suitename = sys.argv[1]
     # vars and configuration management to be improved    
-    ecf_vars={"SCHOST": "hpc",
-              "WSHOST": "hpc",
-              "STHOST": "ws1",
-              "STHOST_BKUP": "ws2",
-              "ECF_FILES": os.path.join(os.environ["PWD"], "jobs"),
-              "ECF_INCLUDE": os.path.join(os.environ["PWD"], "include"),
-              "ECF_HOME": os.path.join(os.environ["PWD"], "ecflow"),
-              "ECF_STATUS_CMD": "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%",
-              "ECF_KILL_CMD": "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%",
-              "ECF_JOB_CMD": "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%",
-              "ECF_TRIES": "2",
-              "ECTC_ENS_MEMB": "0",
-              "ECTC_BASE": os.environ["PWD"], # base for possible subdirs
-              "ECTC_CONF": os.path.join(os.environ["PWD"], "conf"), # shell conf files to be sourced
-#              "ECTC_WORK": os.path.join(os.environ["PWD"], "work", "%STHOST%", "tc") # "fat" work dir, to become os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork")
-              "ECTC_WORK": os.path.join(os.environ["TCWORK"], "work", "%SUITE%"),
-#              "EC_DISS": os.path.join("/ec", "%STHOST%", "tc", os.environ["USER"], "tcwork", "lb", "ecdiss")
-              "EC_DISS": os.path.join("/ec", "%STHOST%", "tc", "zcl", "tcwork", "lb", "ecdiss")
-    }
-    conf={"deltaday": 30,
-          "ecf_vars": ecf_vars, # defined above
-          "hours": range(0, 24, 12), # (0,24,24) to run only at 00
-          "forecastrange": 132,
-          "subsuites": ("ana", "eps", "det"),
-          "pretypes": ("mars", "diss"),
-          "predefault": "mars",
-          "splitretrieve": "Y",
-          "iconsoil": None,
-          "membrange": range(5)}
+
+    with open(os.path.join(os.environ["ECTC_BASE"], "conf", suitename, "suiteconf.toml"), "rb") as fd:
+        suiteconf = tomllib.load(fd)
+    conf = suiteconf["suiteconf"] # suiteconf section becomes main conf
+    conf["ecfvars"] = {} # add an empty dictionary for ecflow variables
+    for k in suiteconf["ecfvars"]: # add ecflow variables expanding environment
+        conf["ecfvars"][k] = os.path.expandvars(suiteconf["ecfvars"][k])
 
     # create a suite, ileps.suite will be the root node of the suite
-    ileps = TcSuite("ileps_timecrit_ng")
+    ileps = TcSuite(suitename)
     # add defined ECF vars
     TcEcfVars(conf).add_to(ileps.suite)
     TcEmergency(conf).add_to(ileps.suite)

@@ -4,9 +4,9 @@ import sys
 import os
 import re
 
-def open_include(name):
+def open_template(name):
     res = None
-    confdirlist = os.getenv('confdirlist')
+    confdirlist = os.getenv('ECTC_CONFDIRLIST')
     if os.path.basename(name) != name or confdirlist is None:
         res = name
     else:
@@ -22,7 +22,7 @@ def open_include(name):
                 if os.path.exists(tryfile2): res = tryfile2
             if os.path.exists(tryfile): res = tryfile
     if res is not None: return open(res)
-    sys.stderr.write("include file "+name+" was not found")
+    sys.stderr.write("template file "+name+" was not found")
     return None
 
 
@@ -44,7 +44,7 @@ def ac_templater(fd_in, fd_out):
     for line in fd_in:
         mo = RE_INCLUDE.match(line)
         if mo is not None:
-            fd_inc = open_include(mo.group(1))
+            fd_inc = open_template(mo.group(1))
             ac_templater(fd_inc, fd_out)
             fd_inc.close()
         else:
@@ -53,7 +53,7 @@ def ac_templater(fd_in, fd_out):
 
 missingkeys = []
 if len(sys.argv) > 1:
-    fd_in = open(sys.argv[1])
+    fd_in = open_template(sys.argv[1])
 else:
     fd_in = sys.stdin
 ac_templater(fd_in, sys.stdout)

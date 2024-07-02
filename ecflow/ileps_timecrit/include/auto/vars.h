@@ -1,6 +1,5 @@
 # enable autoexport
 set -a
-ECTC_BASE=%ECTC_BASE%
 ECTC_CONF=%ECTC_CONF%
 ECTC_WORK=%ECTC_WORK%
 
@@ -26,6 +25,8 @@ fi
 # -1 control
 # -2 loop on all members from 0 to $ENS_TOTAL_MEMB
 
-confdirlist=$ECTC_CONF
-. $ECTC_CONF/%SUITE%
+ECTC_CONFDIRLIST="$ECTC_CONF $ECTC_CONF/%SUITE%"
+for dir in $ECTC_CONFDIRLIST; do
+  . $dir/runconf.sh
+done
 set +a
