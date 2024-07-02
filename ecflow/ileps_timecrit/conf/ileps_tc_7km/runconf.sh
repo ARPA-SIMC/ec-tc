@@ -2,13 +2,23 @@
 # no need to export every single variable
 
 CONST_DIR=$ECTC_BASE/const
+MODEL_SRC=$TCWORK/src/icon
+MODEL_GRID=$CONST_DIR/icon-leps-7km_DOM01.nc
+MODEL_GRID_PARENT=$CONST_DIR/icon-leps-7km_DOM01.parent.nc
+MODEL_GRID_EXTERNAL=$CONST_DIR/external_parameter_icon_icon-leps-7km_DOM01_tiles.nc
+MODEL_FCAST_GP=125
+TIME_STEP=60
+if [ "$TRYNO" -gt 1 ]; then
+  TIME_STEP=$(($TIME_STEP/2))
+fi
+MODEL_STOP=6 # 132
 ICONSOIL_DIR=$ECTC_WORK/iconsoil
 RETRIEVE_CLA_DIR=$ECTC_WORK/retrieve_cla_pl
 CLUST_ANA_DIR=$ECTC_WORK/clust_ana
 RETRIEVE_IC_BC_DIR=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
 RETRIEVE_IC_BC_DIR_COMMON=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
-ICON_DIR=$ECTC_WORK/icon.$ENS_MEMB
+MODEL_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
 BIN_DIR=$TCWORK/bin
 SIMC_TOOLS="singularity exec -B $ECTC_WORK $BIN_DIR/simctools_simc_tools_r8.sif"
@@ -72,6 +82,7 @@ safe_rm_rf() {
 }
 
 conf_template() {
+  echo $confdirlist
   $ECTC_BASE/bin/ac_templater.py $ECTC_CONF/$1.in > $1
 }
 

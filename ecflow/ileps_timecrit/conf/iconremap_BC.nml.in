@@ -2,7 +2,7 @@
  in_grid_filename  = "@IN_GRID@"
  in_filename       = "@IN_FILE@"
  in_type           = 3
- out_grid_filename = "@OUT_GRID@"
+ out_grid_filename = "@MODEL_GRID@"
  out_filename      = "@OUT_FILE@"
  out_type          = 2
  out_filetype      = 4
