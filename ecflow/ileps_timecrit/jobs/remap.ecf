@@ -39,7 +39,16 @@ fi
 for trange in `seq 0 $hincbd $MODEL_STOP`; do
     dd=`printf "%%02d" $((trange/24))`
     hh=`printf "%%02d" $((trange%%24))`
-    export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).grib
+    if [ "$trange" = "0" ]; then
+        export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).grib
+    else
+# at steps >0 copy hybrid level surface orography to lbc, it would be
+# more elegant to do it in retrieve phase but an additional task would
+# be needed because we need IC and BC simultaneously
+        export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).z.grib
+        grib_set -s stepRange=$trange -w shortName=FI -S $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib $IN_FILE
+        cat $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).grib >> $IN_FILE
+    fi
     export OUT_FILE=$REMAP_DIR/data/lbc_${DATE}${TIME}_${dd}${hh}0000.nc
     conf_template iconremap_BC.nml
     $BIN_DIR/iconremap -vvv --remap_nml=iconremap_BC.nml
