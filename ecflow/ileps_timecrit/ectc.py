@@ -183,7 +183,7 @@ class TcStartSuite(TcFamily):
             fam = node.add_family("start_suite_"+sub)
             fam.add_task("startileps_tc_"+sub)
             fam.add_variable("ECF_DUMMY_TASK", "Y")
-            if self.conf.get("timecrit", False):
+            if not self.conf.get("timecrit", False):
                 fam.add_defstatus(ecflow.Defstatus("complete"))
 
 
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     ileps = TcSuite(suitename)
     # add defined ECF vars
     TcEcfVars(conf).add_to(ileps.suite)
-    if self.conf.get("timecrit", False):
+    if conf.get("timecrit", False):
         TcEmergency(conf).add_to(ileps.suite)
     # add timing loop
     suitetime = TcSuiteTime(conf)
