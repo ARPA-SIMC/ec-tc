@@ -14,5 +14,7 @@ More detailed information can be found in the specific
 [README](ecflow/ileps_timecrit/README.md) in the ileps_timecrit
 directory.
 
-
-
+The suite generation and the job configuration systems are based on
+[nwpconf](https://github.com/ARPA-SIMC/nwpconf) and
+[nwprun](https://github.com/ARPA-SIMC/nwprun) packages, but in a
+simplified and incompatible way.

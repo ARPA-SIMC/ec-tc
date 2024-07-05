@@ -10,20 +10,21 @@ ICON-LEPS time-critical suite(s) on Atos.
  * `jobs/` suite jobs
  * `include/` job include files
 
-Additionally the following directories are created and populated runtime:
+Additionally the following directories are created and/or populated
+runtime:
 
  * `ecflow/` jobs and logs
  * `const/` link to the constant data directory on timecritical storage.
 
-### Creating the suites definitions
+### Creating the suites' definitions
 
-The `ectc.py` script is run to create the suites definitions and for
-uploading them to the user ecflow server. The script can create
-different suites according to the configurations contained in the
-subdirectories of `conf/` directory, still following the general ileps
-suite structure. The script has to be prefixed by `bin/ec_wrap`
-command in order to set up the environment and with the suite name (a
-directory under `conf/`, see next section) as first argument:
+The `ectc.py` script has to be run in order to create the suites
+definitions and upload them to the user ecflow server. The script can
+create different suites according to the configurations contained in
+the subdirectories of `conf/` directory, still following the general
+ileps suite structure. The script has to be prefixed by `bin/ec_wrap`
+command in order to set up the environment and suffixed by the suite
+name (a directory under `conf/`, see next section) as first argument:
 
 ```
 bin/ec_wrap ./ectc.py ileps_tc_7km
@@ -31,13 +32,14 @@ bin/ec_wrap ./ectc.py ileps_tc_7km
 
 ### Suite configuration
 
-Every suite has its own configuration in the `conf/<suitename>`
-directory. The configuration consists of a suite configuration file
-and a runtime configuration file.
+Every suite has its own configuration in the `conf` and
+`conf/<suitename>` directory. The configuration consists of a suite
+configuration file, runtime configuration file(s) and template files.
 
 #### suite configuration file
 
-Its name is `suiteconf.toml`, it is a simple text file in
+Its name is `suiteconf.toml`, there is only one such file per suite in
+`conf/<suitename>`, it is a simple text file in
 [toml](https://toml.io/en/) format, a variant of the so-called "ini
 file" format.
 
@@ -50,7 +52,7 @@ The `ecfvars` section can contain environmental variables with a
 shell-like symtax (e.g. `$HOME` or `${HOME}`) which will be expanded
 at suite generation time, this is not a feature of toml-format, it is
 implemented in `ectc.py` using python library function
-`os.path.expandvars`. Here is an example of the `ecfvars` section:
+`os.path.expandvars`.  Here is an example of the `ecfvars` section:
 ```
 [ecfvars]
 
@@ -89,21 +91,22 @@ membrange = "0-4"
 timecrit = true
 ```
 
-The list of supported variables may change.
+The list of supported variables may change. This is the explanation of
+nost of them:
 
  * `suitestart` (datetime) first day of suite cycling
  * `suiteback` (int) alternative to the previous, how many days before today the suite should start cycling
  * `suitestop` (datetime) last day of suite cycling
  * `suiteduration` (int) alternative to the previous, for how many days the suite should cycle
- * `hours` (range in format `1,3,6-9,10-20:2`) hours of day (UTC) at which suite should run, e.g. `0-21:3` means every 3 hours from 0 to 21 UTC
+ * `hours` (range string in format `1,3,6-9,10-20:2`) hours of day (UTC) at which suite should run, e.g. `0-21:3` means every 3 hours from 0 to 21 UTC
  * `forecastrange` (int) maximum forecast range for leps run in hours
- * `subsuites` (array of strings) pre-configured type of model runs to be added t the suite, possible values "ana", "eps", "det"
+ * `subsuites` (array of strings) pre-configured types of model runs to be added to the suite, possible values "ana", "eps", "det"
  * `iconsoil` to be included in subsuites?
- * `pretypes` (array of strings) pre-configured type of data access for the suite, possible values "mars", "diss"
+ * `pretypes` (array of strings) pre-configured types of data access for the suite, possible values "mars", "diss"
  * `predefault` default data access method among `pretypes`, the other one(s) will be set to "defstatus complete" in the suite definition
- * `splitretrieve` (boolean) retrieve BC with a task for each 24 hour interval (default, true) or with a singel task (false)
- * `membrange` (range) range of ensemble members to be run (0=deterministic)
- * `timecrit` (boolean) the suite is timecritical, thus it has emergency family and it is started by real-time dissemination events (true) or it is a reforecast self-cycling non realtime suite (default, false).
+ * `splitretrieve` (boolean) retrieve BC with a task for each 24 hour interval (default, true) or with a single task (false)
+ * `membrange` (range string) range of ensemble members to be run (0=deterministic)
+ * `timecrit` (boolean) the suite is realtime/timecritical, thus it has an "emergency" family and it is started by real-time dissemination events (true) or it is a continuous reforecast non realtime suite (default, false).
 
 #### Runtime configuration files
 
@@ -111,11 +114,11 @@ These are pure bash shell scripts files, called `runconf.sh`, one is
 in the `conf/` directory, and one is in each suite-specific
 configuration subdirectory. They are sourced by each suite job in the
 order (`conf/runconf.sh`, `conf/<suitename>/runconf.sh`), so the first
-holds common settings, while thesecond ones hold suite-specific
+holds common settings, while the second ones hold suite-specific
 settings. In principle they can contain any bash command, but it is
 recommended to limit them to environmental variable assignment and
 utility functions. They are sourced with `set -a`, so every assigned
-variable is implicitly exported without need of using `export`
+variable is implicitly exported without the need to use `export`
 command.
 
 #### Text file templates
@@ -124,7 +127,7 @@ The configuration directories can also contain templates, with the
 suffix `.in`, for creating runtime configuration files
 (e.g. namelists); these files can be used in the suite jobs with the command
 `ac_templater <filename>` in order to create in the current directory a
-file based on a suite-specific template `<filename>.in` where
+file based on a suite-specific template `<filename>.in`, where
 sequences like `@VAR@` are replaced by the corresponding environmental
 variable `$VAR`, and `@INCLUDE <includefile>@` are replaced by the
 contents of file `<includefile>` searched for in the suite
@@ -132,6 +135,6 @@ configuration tree.
 
 These files are first searched in the generic configuration directory
 and then in the suite-specific directory, the last one found is
-used. In case of ensemble runs (`$ENS_MEMB` > 0) a file with the
+used. In case of ensemble runs (`$ENS_MEMB` > 0), a file with the
 `.in.ens` or a file with the `.in.$ENS_MEMB` suffix, if found, is used
 instead of the file with `.in` extension.
