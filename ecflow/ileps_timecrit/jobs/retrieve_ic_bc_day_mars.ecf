@@ -9,29 +9,40 @@ retrieve_surf_ana_mars() {
 
 cat >req_${refdate}${reftime}_ana1 << FINIFINI
 RETRIEVE,
-$anfc,
+#$anfc,
 LEVTYPE=SFC,
 LEVELIST=OFF,
 REPRES=GG,
 DATE=$refdate,
 TIME=$reftime,
-PARAM=SST/SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
+PARAM=SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo,
 TARGET="data/ec_${refdate}${reftime}_surf.0"
 
 RETRIEVE,
+#$anfc_nolag,
 LEVTYPE=ML,
 LEVELIST=1,
 REPRES=SH,
-PARAM=Z
+PARAM=Z,
+$marsinfo_const
+
+RETRIEVE,
+#$anfc,
+LEVTYPE=SFC,
+LEVELIST=OFF,
+REPRES=GG,
+PARAM=SST,
+$marsinfo,
+INTERPOLATION=NEAREST LSM
 
 FINIFINI
 
 cat >req_${refdate}${reftime}_ana2 << FINIFINI
 RETRIEVE,
-$anfc_nolag,
+#$anfc_nolag,
 LEVTYPE=SFC,
 LEVELIST=OFF,
 REPRES=GG,
@@ -41,14 +52,14 @@ TIME=$reftime,
 PARAM=Z/LSM/SR/SLT,
 $geoinfo,
 EXPVER=$expid,
-$marsinfo_ctrl,
+$marsinfo_const,
 TARGET="data/ec_${refdate}${reftime}_const.0"
 
 FINIFINI
 
 cat >req_${refdate}${reftime}_ana3 << FINIFINI
 RETRIEVE,
-$anfc,
+#$anfc,
 LEVTYPE=SFC,
 GRID=AV,
 AREA=OFF,
@@ -60,15 +71,14 @@ $marsinfo,
 TARGET="data/ec_${refdate}${reftime}_ggswv.0"
 
 RETRIEVE,
-$anfc_nolag,
+#$anfc_nolag,
 DATE=$refdate,
 TIME=$reftime,
 PARAM=SLT,
-$marsinfo_ctrl,
+$marsinfo_const,
 TARGET="data/ec_${refdate}${reftime}_ggslt.0"
 
 FINIFINI
-
 mars req_${refdate}${reftime}_ana1
 mars req_${refdate}${reftime}_ana2
 mars req_${refdate}${reftime}_ana3
@@ -81,7 +91,7 @@ retrieve_ml_mars() {
 
 cat >req_ml_$RETRIEVE_STOP << FINIFINI
 RETRIEVE,
-$anfc,
+#$anfc,
 LEVTYPE=ML,
 LEVELIST=31/TO/$NLEV,
 REPRES=SH,
@@ -151,6 +161,7 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     reftime=$TIME
     lag=0
     marsinfo="CLASS=OD,STREAM=oper,TYPE=fc,PADDING=0"
+    marsinfo_const="CLASS=OD,STREAM=oper,TYPE=an,PADDING=0"
     geoinfo0="AREA=$DET_AREA,GRID=$DET_GRID"
     NLEV=$DET_NLEV
     expid=$DET_EXPID
@@ -161,10 +172,10 @@ else # leps member
     . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
     if [ "$elem" = 0 ]; then
         marsinfo="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
-        marsinfo_ctrl=$marsinfo
+        marsinfo_const=$marsinfo
     else
         marsinfo="CLASS=OD,STREAM=enfo,TYPE=pf,NUMBER=$elem,PADDING=0"
-        marsinfo_ctrl="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
+        marsinfo_const="CLASS=OD,STREAM=enfo,TYPE=cf,PADDING=0"
     fi
     geoinfo0="AREA=$EPS_AREA,GRID=$EPS_GRID"
     NLEV=$EPS_NLEV
@@ -174,11 +185,12 @@ fi
 
 if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
     if [ "$lag" = 0 ]; then
-        anfc="TYPE=AN"
+        anfc=
     else
-        anfc="TYPE=FC,STEP=$lag"
+	marsinfo="$marsinfo,STEP=$lag"
+        anfc="STEP=$lag"
     fi
-    anfc_nolag="TYPE=AN"
+    anfc_nolag=""
     geoinfo="${geoinfo0},TRUNCATION=NONE"
     retrieve_surf_ana_mars
     retrieve_ml_mars
@@ -199,7 +211,8 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
     #   rm -f data/ec_${refdate}${reftime}_*.0 # needed?
 
 else # multiple forecasts without analysis requested
-    anfc="TYPE=FC,STEP=$(($RETRIEVE_START+$hincbd+$lag))/to/$(($RETRIEVE_STOP+$lag))/by/$hincbd"
+    marsinfo="$marsinfo,STEP=$(($RETRIEVE_START+$hincbd+$lag))/to/$(($RETRIEVE_STOP+$lag))/by/$hincbd"
+    anfc="STEP=$(($RETRIEVE_START+$hincbd+$lag))/to/$(($RETRIEVE_STOP+$lag))/by/$hincbd"
     geoinfo="${geoinfo0},TRUNCATION=AUTO"
     retrieve_ml_mars
     for ofile in data/ec_${refdate}${reftime}_ml.*; do
