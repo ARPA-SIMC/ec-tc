@@ -1,5 +1,5 @@
 %include <sched_prolog.h>
-%include <sched_parallel.h>
+%include <sched_shmem.h>
 %include <script_prolog.h>
 %include <mod_icon.h>
 
@@ -51,5 +51,5 @@ for trange in `seq 0 $hincbd $MODEL_STOP`; do
     fi
     export OUT_FILE=$REMAP_DIR/data/lbc_${DATE}${TIME}_${dd}${hh}0000.nc
     conf_template iconremap_BC.nml
-    $BIN_DIR/iconremap -vvv --remap_nml=iconremap_BC.nml
+    $BIN_DIR/iconremap -vvv --remap_nml=iconremap_BC.nml &
 done
