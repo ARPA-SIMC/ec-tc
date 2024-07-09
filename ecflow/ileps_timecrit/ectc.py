@@ -83,6 +83,26 @@ class TcSuite():
         self.checked = False
 
 
+    def addlimit(self, name, size, nodere):
+        import re
+        noderec = re.compile(nodere)
+#        for suite in self.defs.suites:
+        self.suite.add_limit(name, size) # add limit at suite root level
+        self.__loopnodes(self.suite, name, noderec)
+
+
+    def __loopnodes(self, suite, name, noderec):
+        for node in suite.nodes:
+            if isinstance(node, ecflow.Task): # task, stop here
+                if noderec.search(node.name()):
+                    node.add_inlimit(name, "", 1)
+            else: # family, go deeper
+                if noderec.search(node.name()):
+                    node.add_inlimit(name, "", 1)
+                else: # do not go deeper if the limit applies to the family
+                    self.__loopnodes(node, name, noderec)
+
+
     def check(self):
         # check syntax
         result = self.defs.check()
@@ -298,6 +318,8 @@ if __name__ == '__main__':
         TcRegribFdb(conft).add_to(timeloop)
     # add anything to be added outside the time loop .add_to(ileps.suite)
     # check the suite (syntax, triggers, jobs)
+    if "mars" in conf.get("pretypes", []) and conf.get("splitretrieve", False):
+        ileps.addlimit("mars_retrieve", 10, "retrieve_ic_bc_day_mars")
     ileps.check()
     #ileps.checked=True
     # write suite to a .def file
