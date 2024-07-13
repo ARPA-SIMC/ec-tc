@@ -30,6 +30,13 @@ name (a directory under `conf/`, see next section) as first argument:
 bin/ec_wrap ./ectc.py ileps_tc_7km
 ```
 
+According to the current configuration (see next sections), the only
+environmental vriables which have to be set at the time of generating
+the suite are `$ECTC_BASE`, pointing to the `ileps_timecrit` directory
+of this package and set by the user's profile, and `$TCWORK`, pointing
+to the time critical filesystem to be used and set by system login
+scripts.
+
 ### Suite configuration
 
 Every suite has its own configuration in the `conf` and
@@ -72,6 +79,13 @@ ECTC_ENS_MEMB = "0"
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
 ECTC_WORK = "$TCWORK/work/%SUITE%" # "/ec/%STHOST%/tc/$USER/tcwork/%SUITE%" ?
 ```
+
+Notice that these are not real environmental variables but internal
+ecflow server variables. They can be used in the ecflow `.ecf` scripts
+using the `%<var>%` syntax and its variants, or converted to
+shell environmental variables individually as it is done in the
+[`vars.h`](https://github.com/ARPA-SIMC/ec-tc/blob/e6ce374a3ba590dc35c8fa739db0e3af9db2c237/ecflow/ileps_timecrit/include/auto/vars.h#L3)
+script header file.
 
 The section `suiteconf` looks like:
 ```
@@ -138,3 +152,12 @@ and then in the suite-specific directory, the last one found is
 used. In case of ensemble runs (`$ENS_MEMB` > 0), a file with the
 `.in.ens` or a file with the `.in.$ENS_MEMB` suffix, if found, is used
 instead of the file with `.in` extension.
+
+### Runtime directories
+
+Additionally the following directories are used and/or populated
+runtime:
+
+ * `$ECTC/ecflow/` jobs and logs
+ * `$ECTC_WORKBASE/const` constant data directory on timecritical storage
+ * `$ECTC_WORKBASE/bin` executable directory on timecritical storage.

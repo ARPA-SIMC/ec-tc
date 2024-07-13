@@ -14,7 +14,7 @@ ECF_TRIES = "2"
 ECTC_BASE = "$ECTC_BASE" # from user profile, repeated here because it could be lost in the suite env
 ECTC_ENS_MEMB = "0"
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
-ECTC_WORKBASE = "/ec/%STHOST%/tc/$USER/tcwork/work"
+ECTC_WORKBASE = "/ec/%STHOST%/tc/$USER/tcwork"
 ECTC_WORK = "/ec/%STHOST%/tc/$USER/tcwork/work/%SUITE%"
 EC_DISS = "/ec/%STHOST%/tc/zcl/tcwork/lb/ecdiss" # $USER - zcl?
 
