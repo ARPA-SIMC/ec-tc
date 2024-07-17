@@ -194,7 +194,7 @@ max_calibfac_clcl            = 2
   vmr_o2              = 0.20946
   vmr_cfc11           = 240.e-12
   vmr_cfc12           = 532.e-12
-  ecrad_data_path     = "@MODEL_SRC@/externals/ecrad/data"
+  ecrad_data_path     = "@CONST_DIR@/ecrad/data"
 /
 
 &nonhydrostatic_nml

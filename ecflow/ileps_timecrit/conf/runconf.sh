@@ -1,7 +1,6 @@
 # this script is sourced with set -a (automatic export), so there is
 # no need to export every single variable
 
-MODEL_SRC=$TCWORK/src/icon
 MODEL_STOP=6 # 132
 ICONSOIL_DIR=$ECTC_WORK/iconsoil
 RETRIEVE_CLA_DIR=$ECTC_WORK/retrieve_cla_pl
@@ -11,7 +10,8 @@ RETRIEVE_IC_BC_DIR_COMMON=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
 MODEL_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
-BIN_DIR=$TCWORK/bin
+BIN_DIR=$ECTC_WORKBASE/bin
+CONST_DIR=$ECTC_WORKBASE/const
 SIMC_TOOLS="singularity exec -B $ECTC_WORK $BIN_DIR/simctools_simc_tools_r8.sif"
 
 # input data configuration

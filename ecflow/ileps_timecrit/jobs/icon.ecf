@@ -10,8 +10,8 @@ mkdir -p $MODEL_DIR/data
 cd $MODEL_DIR
 
 
-cp $MODEL_SRC/data/rrtmg_lw.nc .
-cp $MODEL_SRC/data/ECHAM6_CldOptProps.nc .
+cp $CONST_DIR/rrtmg_lw.nc .
+cp $CONST_DIR/ECHAM6_CldOptProps.nc .
 cp $ECTC_CONF/map_file.ana .
 cp $ECTC_CONF/map_file.latbc .
 
