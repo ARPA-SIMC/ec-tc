@@ -5,7 +5,7 @@ WSHOST = "hpc"
 STHOST = "$STHOST"
 ECF_FILES = "$ECTC_BASE/jobs"
 ECF_INCLUDE = "$ECTC_BASE/include"
-ECF_HOME = "$ECTC_BASE/ecflow" # "/ec/%STHOST%/tc/$USER/tcwork/ecflow" #
+ECF_HOME = "$ECTC_BASE/ecflow" # "%STHOST%/tc/$USER/tcwork/ecflow" #
 ECF_STATUS_CMD = "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%"
 ECF_KILL_CMD = "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%"
 ECF_JOB_CMD = "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%"

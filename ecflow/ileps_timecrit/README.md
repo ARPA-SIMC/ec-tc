@@ -10,12 +10,6 @@ ICON-LEPS time-critical suite(s) on Atos.
  * `jobs/` suite jobs
  * `include/` job include files
 
-Additionally the following directories are created and/or populated
-runtime:
-
- * `ecflow/` jobs and logs
- * `const/` link to the constant data directory on timecritical storage.
-
 ### Creating the suites' definitions
 
 The `ectc.py` script has to be run in order to create the suites
@@ -30,12 +24,19 @@ name (a directory under `conf/`, see next section) as first argument:
 bin/ec_wrap ./ectc.py ileps_tc_7km
 ```
 
-According to the current configuration (see next sections), the only
-environmental vriables which have to be set at the time of generating
-the suite are `$ECTC_BASE`, pointing to the `ileps_timecrit` directory
-of this package and set by the user's profile, and `$TCWORK`, pointing
-to the time critical filesystem to be used and set by system login
-scripts.
+The `ectc.py` script (re)defines `$ECTC_BASE` to point to the path of
+the script itself (i.e. the directory in the git checkout), thus the
+directories under the current directory will be used for
+configuration, include, jobs and logs, ancillary executables, etc; the
+variable `$ECTC_BASE` should not be used elsewhere within the suite
+configuration and jobs, except in the suite configuration file
+`suitedef.toml` (see below).
+
+The "fat" working directories are always located in the `$TCWORK`
+time-critical area regardless of the position of the `ectc.py` script,
+the choice between the first or second storage host for the suite at
+runtime, is made depending on the interactive choice of the storage in
+the session where `ectc.py` is launched.
 
 ### Suite configuration
 
@@ -52,11 +53,11 @@ file" format.
 
 It has two sections, the first called `ecfvars` containing the ecflow
 variables to be included in the suite at suite level, the second
-`suiteconf` containing the configuration of the suite as expected by
-`ectc.py`.
+`suiteconf` containing the configuration of the suite structure as
+expected by `ectc.py`.
 
 The `ecfvars` section can contain environmental variables with a
-shell-like symtax (e.g. `$HOME` or `${HOME}`) which will be expanded
+shell-like syntax (e.g. `$HOME` or `${HOME}`) which will be expanded
 at suite generation time, this is not a feature of toml-format, it is
 implemented in `ectc.py` using python library function
 `os.path.expandvars`.  Here is an example of the `ecfvars` section:
@@ -65,19 +66,20 @@ implemented in `ectc.py` using python library function
 
 SCHOST = "hpc"
 WSHOST = "hpc"
-STHOST = "ws1"
-STHOST_BKUP = "ws2"
+STHOST = "$STHOST"
 ECF_FILES = "$ECTC_BASE/jobs"
 ECF_INCLUDE = "$ECTC_BASE/include"
-ECF_HOME = "$ECTC_BASE/ecflow"
+ECF_HOME = "$ECTC_BASE/ecflow" # "%STHOST%/tc/$USER/tcwork/ecflow" #
 ECF_STATUS_CMD = "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%"
 ECF_KILL_CMD = "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%"
 ECF_JOB_CMD = "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%"
 ECF_TRIES = "2"
-ECTC_BASE = "$ECTC_BASE" # from user profile, repeated here because it could be lost in the suite env
 ECTC_ENS_MEMB = "0"
+ECTC_BIN = "$ECTC_BASE/bin" # suite management executables (not model executables)
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
-ECTC_WORK = "$TCWORK/work/%SUITE%" # "/ec/%STHOST%/tc/$USER/tcwork/%SUITE%" ?
+ECTC_WORKBASE = "%STHOST%/tc/$USER/tcwork"
+ECTC_WORK = "%STHOST%/tc/$USER/tcwork/work/%SUITE%"
+EC_DISS = "%STHOST%/tc/zcl/tcwork/lb/ecdiss" # $USER - zcl?
 ```
 
 Notice that these are not real environmental variables but internal

@@ -2,6 +2,7 @@
 # no need to export every single variable
 
 MODEL_STOP=6 # 132
+ENS_TOTAL_MEMB=4 # this must coincide with the value in suite definition untile there will be a mechanism to dynamically reduce the number of members
 ICONSOIL_DIR=$ECTC_WORK/iconsoil
 RETRIEVE_CLA_DIR=$ECTC_WORK/retrieve_cla_pl
 CLUST_ANA_DIR=$ECTC_WORK/clust_ana
