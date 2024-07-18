@@ -2,21 +2,20 @@
 
 SCHOST = "hpc"
 WSHOST = "hpc"
-STHOST = "ws1"
-STHOST_BKUP = "ws2"
+STHOST = "$STHOST"
 ECF_FILES = "$ECTC_BASE/jobs"
 ECF_INCLUDE = "$ECTC_BASE/include"
-ECF_HOME = "$ECTC_BASE/ecflow" # "/ec/%STHOST%/tc/$USER/tcwork/ecflow" # 
+ECF_HOME = "$ECTC_BASE/ecflow" # "/ec/%STHOST%/tc/$USER/tcwork/ecflow" #
 ECF_STATUS_CMD = "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%"
 ECF_KILL_CMD = "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%"
 ECF_JOB_CMD = "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%"
 ECF_TRIES = "2"
-ECTC_BASE = "$ECTC_BASE" # from user profile, repeated here because it could be lost in the suite env
 ECTC_ENS_MEMB = "0"
+ECTC_BIN = "$ECTC_BASE/bin" # suite management executables (not model executables)
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
-ECTC_WORKBASE = "/ec/%STHOST%/tc/$USER/tcwork"
-ECTC_WORK = "/ec/%STHOST%/tc/$USER/tcwork/work/%SUITE%"
-EC_DISS = "/ec/%STHOST%/tc/zcl/tcwork/lb/ecdiss" # $USER - zcl?
+ECTC_WORKBASE = "%STHOST%/tc/$USER/tcwork"
+ECTC_WORK = "%STHOST%/tc/$USER/tcwork/work/%SUITE%"
+EC_DISS = "%STHOST%/tc/zcl/tcwork/lb/ecdiss" # $USER - zcl?
 
 [suiteconf]
 

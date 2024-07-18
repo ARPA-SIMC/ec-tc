@@ -1,6 +1,6 @@
 # enable autoexport
 set -a
-ECTC_BASE=%ECTC_BASE%
+ECTC_BIN=%ECTC_BIN%
 ECTC_CONF=%ECTC_CONF%
 ECTC_WORKBASE=%ECTC_WORKBASE%
 ECTC_WORK=%ECTC_WORK%
@@ -32,3 +32,4 @@ for dir in $ECTC_CONFDIRLIST; do
   . $dir/runconf.sh
 done
 set +a
+set -x          # echo script lines as they are executed
