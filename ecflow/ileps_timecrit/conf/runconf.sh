@@ -2,7 +2,12 @@
 # no need to export every single variable
 
 MODEL_STOP=6 # 132
-ENS_TOTAL_MEMB=4 # this must coincide with the value in suite definition untile there will be a mechanism to dynamically reduce the number of members
+ENS_TOTAL_MEMB=4 # this must coincide with the value in suite definition until there will be a mechanism to dynamically reduce the number of members
+GRIB_CENTER=80
+GRIB_SUBCENTER=255
+MODEL_FCENS_GP=131
+MODEL_FCAST_GP=132
+
 ICONSOIL_DIR=$ECTC_WORK/iconsoil
 RETRIEVE_CLA_DIR=$ECTC_WORK/retrieve_cla_pl
 CLUST_ANA_DIR=$ECTC_WORK/clust_ana

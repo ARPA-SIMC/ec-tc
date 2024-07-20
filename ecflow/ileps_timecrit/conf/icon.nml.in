@@ -61,18 +61,7 @@
  lmask_boundary              = .true.           ! false in assimilation cycle
 /
 
-&gribout_nml
- generatingCenter            = 80
- generatingSubcenter         = 255
- generatingProcessIdentifier = @MODEL_FCAST_GP@
- localtablesversion          = 0
-! see mo_gribout_nml.f90 for preset behavior
- preset                      = 'none'
- typeOfGeneratingProcess     = 2
- localDefinitionNumber       = 0
- typeOfProcessedData         = 1
-
-/
+@INCLUDE gribout_nml@
 
 ! ------------------------------------------------------------------------------------------
 ! OUTPUT: include predefined templates
