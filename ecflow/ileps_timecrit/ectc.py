@@ -293,12 +293,13 @@ if __name__ == '__main__':
     # vars and configuration management to be improved    
     # reset $ECTC_BASE to script directory for relocating in tc directories
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    os.environ["ECTC_BASE"] = script_dir
-    if script_dir.startswith("/ec/ws"):
+    if script_dir.startswith(os.environ["STHOST"]):
+        os.environ["ECTC_BASE"] = script_dir.replace(os.environ["STHOST"], "%STHOST%")
         print("Setting up the suite from a TIME CRITICAL storage", script_dir)
     else:
+        os.environ["ECTC_BASE"] = script_dir
         print("Setting up the suite from a NON TIME CRITICAL storage", script_dir)
-    with open(os.path.join(os.environ["ECTC_BASE"], "conf", suitename, "suiteconf.toml"), "rb") as fd:
+    with open(os.path.join(script_dir, "conf", suitename, "suiteconf.toml"), "rb") as fd:
         suiteconf = tomllib.load(fd)
     conf = suiteconf["suiteconf"] # suiteconf section becomes main conf
     conf["ecfvars"] = {} # add an empty dictionary for ecflow variables

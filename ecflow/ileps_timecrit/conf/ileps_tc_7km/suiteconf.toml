@@ -3,9 +3,11 @@
 SCHOST = "hpc"
 WSHOST = "hpc"
 STHOST = "$STHOST"
+# the following 3 directories must reside in /home/$USER because they
+# are needed by the vm which does not see TC filesystems
 ECF_FILES = "$ECTC_BASE/jobs"
 ECF_INCLUDE = "$ECTC_BASE/include"
-ECF_HOME = "$ECTC_BASE/ecflow" # "%STHOST%/tc/$USER/tcwork/ecflow" #
+ECF_HOME = "$ECTC_BASE/ecflow"
 ECF_STATUS_CMD = "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%"
 ECF_KILL_CMD = "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%"
 ECF_JOB_CMD = "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%"
