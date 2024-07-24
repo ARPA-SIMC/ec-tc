@@ -9,7 +9,6 @@ retrieve_surf_ana_mars() {
 
 cat >req_${refdate}${reftime}_ana1 << FINIFINI
 RETRIEVE,
-#$anfc,
 LEVTYPE=SFC,
 LEVELIST=OFF,
 REPRES=GG,
@@ -22,7 +21,6 @@ $marsinfo,
 TARGET="data/ec_${refdate}${reftime}_surf.0"
 
 RETRIEVE,
-#$anfc_nolag,
 LEVTYPE=ML,
 LEVELIST=1,
 REPRES=SH,
@@ -30,7 +28,6 @@ PARAM=Z,
 $marsinfo_const
 
 RETRIEVE,
-#$anfc,
 LEVTYPE=SFC,
 LEVELIST=OFF,
 REPRES=GG,
@@ -42,7 +39,6 @@ FINIFINI
 
 cat >req_${refdate}${reftime}_ana2 << FINIFINI
 RETRIEVE,
-#$anfc_nolag,
 LEVTYPE=SFC,
 LEVELIST=OFF,
 REPRES=GG,
@@ -59,7 +55,6 @@ FINIFINI
 
 cat >req_${refdate}${reftime}_ana3 << FINIFINI
 RETRIEVE,
-#$anfc,
 LEVTYPE=SFC,
 GRID=AV,
 AREA=OFF,
@@ -71,7 +66,6 @@ $marsinfo,
 TARGET="data/ec_${refdate}${reftime}_ggswv.0"
 
 RETRIEVE,
-#$anfc_nolag,
 DATE=$refdate,
 TIME=$reftime,
 PARAM=SLT,
@@ -91,7 +85,6 @@ retrieve_ml_mars() {
 
 cat >req_ml_$RETRIEVE_STOP << FINIFINI
 RETRIEVE,
-#$anfc,
 LEVTYPE=ML,
 LEVELIST=31/TO/$NLEV,
 REPRES=SH,
@@ -185,12 +178,10 @@ fi
 
 if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
     if [ "$lag" = 0 ]; then
-        anfc=
+        :
     else
 	marsinfo="$marsinfo,STEP=$lag"
-        anfc="STEP=$lag"
     fi
-    anfc_nolag=""
     geoinfo="${geoinfo0},TRUNCATION=NONE"
     retrieve_surf_ana_mars
     retrieve_ml_mars
@@ -212,7 +203,6 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
 
 else # multiple forecasts without analysis requested
     marsinfo="$marsinfo,STEP=$(($RETRIEVE_START+$hincbd+$lag))/to/$(($RETRIEVE_STOP+$lag))/by/$hincbd"
-    anfc="STEP=$(($RETRIEVE_START+$hincbd+$lag))/to/$(($RETRIEVE_STOP+$lag))/by/$hincbd"
     geoinfo="${geoinfo0},TRUNCATION=AUTO"
     retrieve_ml_mars
     for ofile in data/ec_${refdate}${reftime}_ml.*; do
