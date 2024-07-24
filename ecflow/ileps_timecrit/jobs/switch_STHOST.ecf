@@ -1,0 +1,17 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog.h>
+
+if [ "$STHOST" = "/ec/ws1" ]; then
+    SWITCH=/ec/ws2
+elif [ "$STHOST" = "/ec/ws2" ]; then
+    SWITCH=/ec/ws1
+else
+    echo "Error, variable STHOST=$STHOST not correctly set (/ec/ws1 or /ec/ws2)"
+    exit 1
+fi
+
+$ECTC_BASE/bin/sthost_sync.sh # add switch for syncing one way
+ecflow_client --alter=change variable STHOST $SWITCH /%SUITE%
+
+echo "STHOST switched from $STHOST to $SWITCH for suite %SUITE%"
