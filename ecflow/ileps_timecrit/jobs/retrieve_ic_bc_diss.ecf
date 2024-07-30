@@ -6,3 +6,5 @@ safe_rm_rf $GET_ML_DIR
 
 mkdir -p $GET_ML_DIR
 mkdir -p $GET_ML_DIR/data
+
+%include <tail.h>

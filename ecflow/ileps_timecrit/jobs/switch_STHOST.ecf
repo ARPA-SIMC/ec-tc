@@ -15,3 +15,5 @@ $ECTC_BASE/bin/sthost_sync.sh # add switch for syncing one way
 ecflow_client --alter=change variable STHOST $SWITCH /%SUITE%
 
 echo "STHOST switched from $STHOST to $SWITCH for suite %SUITE%"
+
+%include <tail.h>

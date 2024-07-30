@@ -7,3 +7,5 @@ safe_rm_rf $ICONSOIL_DIR
 mkdir -p $ICONSOIL_DIR
 mkdir -p $ICONSOIL_DIR/data
 
+
+%include <tail.h>

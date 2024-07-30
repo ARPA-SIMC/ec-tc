@@ -195,3 +195,5 @@ else # multiple forecasts without analysis requested
     done
 fi
 
+
+%include <tail.h>

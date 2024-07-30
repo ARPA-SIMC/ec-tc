@@ -26,8 +26,10 @@ export IN_GRID=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
 # initial condition
 export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
 export OUT_FILE=$REMAP_DIR/data/ic_${DATE}${TIME}.nc
+mkdir $REMAP_DIR/ic
+cd $REMAP_DIR/ic
 conf_template iconremap_IC.nml
-$BIN_DIR/iconremap -vvv --remap_nml=iconremap_IC.nml
+$BIN_DIR/iconremap -vvv --remap_nml=iconremap_IC.nml &
 
 if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     hincbd=$DET_HINCBD
@@ -50,6 +52,10 @@ for trange in `seq 0 $hincbd $MODEL_STOP`; do
         cat $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).grib >> $IN_FILE
     fi
     export OUT_FILE=$REMAP_DIR/data/lbc_${DATE}${TIME}_${dd}${hh}0000.nc
+    mkdir $REMAP_DIR/bc.$trange
+    cd $REMAP_DIR/bc.$trange
     conf_template iconremap_BC.nml
     $BIN_DIR/iconremap -vvv --remap_nml=iconremap_BC.nml &
 done
+
+%include <tail.h>

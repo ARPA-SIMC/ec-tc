@@ -49,3 +49,5 @@ for lag in ${CLA_LAG[*]}; do
       data/ec_${filedate}_pert.grib
     rm -f data/ec_${filedate}_ctrl_full.grib data/ec_${filedate}_pert_full.grib
 done
+
+%include <tail.h>

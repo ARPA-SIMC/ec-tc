@@ -45,3 +45,5 @@ EOF
 done
 
 $BIN_DIR/cleps_cluster_analysis
+
+%include <tail.h>

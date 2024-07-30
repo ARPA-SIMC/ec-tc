@@ -5,3 +5,5 @@
 safe_rm_rf $RETRIEVE_IC_BC_DIR_COMMON
 mkdir -p $RETRIEVE_IC_BC_DIR_COMMON
 mkdir -p $RETRIEVE_IC_BC_DIR_COMMON/data
+
+%include <tail.h>
