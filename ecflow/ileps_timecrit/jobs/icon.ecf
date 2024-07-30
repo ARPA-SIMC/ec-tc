@@ -20,4 +20,8 @@ export findate=$(date -u --date "${DATE} ${TIME} $MODEL_STOP hours" '+%%Y-%%m-%%
 
 conf_template icon_master.namelist
 conf_template icon.nml
+#export UCX_LOG_LEVEL=info
+export UCX_TLS=all
 srun $BIN_DIR/icon
+
+%include <tail.h>
