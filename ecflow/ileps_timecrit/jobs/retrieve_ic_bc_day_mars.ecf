@@ -18,6 +18,7 @@ PARAM=SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo,
+INTERPOLATION=NEAREST LSM,
 TARGET="data/ec_${refdate}${reftime}_surf.0"
 
 RETRIEVE,
@@ -25,7 +26,8 @@ LEVTYPE=ML,
 LEVELIST=1,
 REPRES=SH,
 PARAM=Z,
-$marsinfo_const
+$marsinfo_const,
+INTERPOLATION=LINEAR
 
 RETRIEVE,
 LEVTYPE=SFC,
