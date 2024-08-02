@@ -66,7 +66,16 @@ done
 
 # at this point $c should be equal n. of BC + 1, launch $c processes
 # with srun, each in its own directory
-export OMP_NUM_THREADS=2
+# in theory:
+# OMP_NUM_THREADS=1
+# --ntasks=2 --cpus-per-task=1
+# should use 2 MPI processes and 1 OpenMP thread
+# while
+# OMP_NUM_THREADS=2
+# --ntasks=1 --cpus-per-task=2
+# should use 1 MPI process and 2 OpenMP threads
+# it is not obvious which one is better
+export OMP_NUM_THREADS=1
 for n in `seq 0 $(($c - 1))`; do
     cd $REMAP_DIR/dir.$n
     srun --exclusive --mem=1G --ntasks=2 --cpus-per-task=1 -N 1 $BIN_DIR/iconremap -vvv --remap_nml=iconremap.nml > iconremap.log 2>&1 &
