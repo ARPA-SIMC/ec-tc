@@ -13,7 +13,7 @@ fi
 
 $ECTC_BASE/bin/sthost_sync.sh # add switch for syncing one way
 ecflow_client --alter=change variable STHOST $SWITCH /%SUITE%
+ecflow_client --label=STHOST $SWITCH
 
 echo "STHOST switched from $STHOST to $SWITCH for suite %SUITE%"
-
 %include <tail.h>

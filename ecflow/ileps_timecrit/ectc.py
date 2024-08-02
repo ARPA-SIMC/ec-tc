@@ -193,7 +193,7 @@ class TcEmergency(TcFamily):
         fam = node.add_family("emergency")
         fam.add_defstatus(ecflow.Defstatus("complete"))
         fam.add_task("emergency_start_hpcf")
-        fam.add_task("switch_STHOST")
+        fam.add_task("switch_STHOST").add_label("STHOST", "")
 
 
 # Add a family for starting suite 
