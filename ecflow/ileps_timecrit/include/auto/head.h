@@ -22,7 +22,6 @@ fi
 # Define error and exit handlers
 ERROR() {
     set +e                      # Clear -e flag, so we don't fail
-    wait                        # wait for background process to stop
     errmsg="$2"
     if [ "$1" = "0" ]; then
         errmsg="CANCELLED or TIMED OUT"
