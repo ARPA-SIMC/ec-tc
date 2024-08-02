@@ -7,7 +7,7 @@
  out_type          = 2
  out_filetype      = 4
  l_have3dbuffer    = .false.
- ncstorage_file    = "ncstorage.tmp"
+ ncstorage_file    = "@MODEL_NCSTORE@"
 /
 &input_field_nml  ! horiz. wind comp. u
  inputname      = "U"
