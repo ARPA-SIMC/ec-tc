@@ -15,6 +15,12 @@ cp $CONST_DIR/ECHAM6_CldOptProps.nc .
 cp $ECTC_CONF/map_file.ana .
 cp $ECTC_CONF/map_file.latbc .
 
+if [ $TIME = "0000" ] ; then
+  export MODEL_STOP=$MODEL_STOP_00
+elif [ $TIME = "1200" ] ; then
+  export MODEL_STOP=$MODEL_STOP_12
+fi
+
 export inidate=$(date -u --date "${DATE} ${TIME}" '+%%Y-%%m-%%dT%%H:%%M:%%SZ')
 export findate=$(date -u --date "${DATE} ${TIME} $MODEL_STOP hours" '+%%Y-%%m-%%dT%%H:%%M:%%SZ')
 

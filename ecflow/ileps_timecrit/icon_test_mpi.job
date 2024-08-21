@@ -1,0 +1,133 @@
+#!/bin/bash
+#SBATCH --output=icon.out
+#SBATCH --qos=tp
+#SBATCH --export=ALL,STHOST
+#SBATCH --account=cosmo
+#SBATCH --time=01:00:00
+#SBATCH --ntasks=384
+#SBATCH --cpus-per-task=1
+#SBATCH --hint=nomultithread
+#SBATCH --mem-bind=local
+
+
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+
+set -e          # stop the shell on first error
+#set -u          # fail when using an undefined variable
+set -o pipefail # fail if last(rightmost) command exits with a non-zero status
+ 
+# Defines the variables that are needed for any communication with ECF
+export ECF_PORT=3141    # The server port number
+export ECF_HOST=ecflow-tc2-zcl2-001    # The host name where the server is running
+export ECF_NAME=/ileps_tc_7km/day/hour_00/iconrun/eps_member_2/icon    # The name of this current task
+export ECF_PASS=isfFNfUU    # A unique password
+export ECF_TRYNO=7  # Current try number of the task
+export ECF_DENIED= # Optional, if set, ecflow_client exits when connection with server fails
+
+# record the process id. Also used for zombie detection
+if [ -n "$PBS_JOBID" ]; then
+    export ECF_RID=${PBS_JOBID%.*}
+elif [ -n "$SLURM_JOB_ID" ]; then
+    export ECF_RID=$SLURM_JOB_ID
+else
+    export ECF_RID=$$
+fi
+
+# Define error and exit handlers
+ERROR() {
+    set +e                      # Clear -e flag, so we don't fail
+    wait                        # wait for background process to stop
+    if [ "" = "TRUE" ]; then
+	echo --msg="Forgiving failure of /ileps_tc_7km/day/hour_00/iconrun/eps_member_2/icon"
+	echo --complete   # Notify ecFlow of a normal end
+    else
+	echo --abort="trap" # Notify ecFlow that something went wrong
+    fi
+    trap - EXIT ERR             # Remove the trap
+    exit 0                      # End the script, was exit 1, set to 0 to avoid double failure of interactive jobs
+}
+
+CLEANEXIT() {
+    [ "$?" = "0" ] || ERROR   # required for `exit 1` to call ERROR function
+    wait                      # wait for background process to stop
+    echo --complete # Notify ecFlow of a normal end
+    trap - EXIT               # Remove all traps
+    exit 0                    # End the script
+}
+
+# Trap any signal that may cause the script to fail
+trap '{ CLEANEXIT ; }' EXIT
+trap '{ echo "Exiting with error"; ERROR ; }' ERR
+trap '{ echo "Killed by a signal"; ERROR ; }' 1 2 3 4 5 6 7 8 10 11 13 24
+
+[ "$(hostname)" != ${ECF_HOST} ] && module load ecflow/5.12.4
+
+# Tell ecFlow we have started
+echo --init=$ECF_RID
+# enable autoexport
+set -a
+ECTC_BIN=/home/zcl2/ec-tc/ecflow/ileps_timecrit/bin
+ECTC_CONF=/home/zcl2/ec-tc/ecflow/ileps_timecrit/conf
+ECTC_WORKBASE=/ec/ws1/tc/zcl2/tcwork
+ECTC_WORK=/ec/ws1/tc/zcl2/tcwork/work/ileps_tc_7km
+
+DATE=20240721
+TIME=0000
+RETRIEVE_START=
+RETRIEVE_STOP=
+EC_DISS=/ec/ws1/tc/zcl/tcwork/lb/ecdiss
+
+# a non-null $DISPLAY (from ecflow env) may interfere with some graphical processes
+# hopefully nobody needs it intentionally
+unset DISPLAY
+
+# set ensemble member from ecflow if available
+if [ -z "$ENS_MEMB" ]; then
+    ENS_MEMB=2
+fi
+#if [ "$ENS_MEMB" = 0 ]; then
+#    unset ENS_MEMB
+#fi
+# >0 ensemble member
+# 0 deterministic
+# -1 control
+# -2 loop on all members from 0 to $ENS_TOTAL_MEMB
+
+ECTC_CONFDIRLIST="$ECTC_CONF $ECTC_CONF/ileps_tc_7km"
+for dir in $ECTC_CONFDIRLIST; do
+  . $dir/runconf.sh
+done
+set +a
+set -x          # echo script lines as they are executed
+
+module load prgenv/intel
+module load intel/2021.4.0
+module load hpcx-openmpi/2.9.0
+module load hdf5/1.10.6
+module load netcdf4/4.7.4
+module load intel-mkl/19.0.5
+module load ecmwf-toolbox/2023.10.1.0
+module load aec/1.0.4
+export ECCODES_DEFINITION_PATH=/perm/dwg/grib_api_def/ec-2.31.0/definitions.edzw:/perm/dwg/grib_api_def/ec-2.31.0/definitions
+export ECCODES_SAMPLES_PATH=/perm/dwgsgrib_api_def/ec-2.31.0/samples-19.1
+
+safe_rm_rf $MODEL_DIR/data
+
+mkdir -p $MODEL_DIR
+mkdir -p $MODEL_DIR/data
+cd $MODEL_DIR
+
+
+cp $CONST_DIR/rrtmg_lw.nc .
+cp $CONST_DIR/ECHAM6_CldOptProps.nc .
+cp $ECTC_CONF/map_file.ana .
+cp $ECTC_CONF/map_file.latbc .
+
+export inidate=$(date -u --date "${DATE} ${TIME}" '+%Y-%m-%dT%H:%M:%SZ')
+export findate=$(date -u --date "${DATE} ${TIME} $MODEL_STOP hours" '+%Y-%m-%dT%H:%M:%SZ')
+
+#conf_template icon_master.namelist
+#conf_template icon.nml
+#export UCX_LOG_LEVEL=info
+export UCX_TLS=all
+srun --cpus-per-task=$SLURM_CPUS_PER_TASK $BIN_DIR/icon.v2-6-6.intel.openmpcomesideve

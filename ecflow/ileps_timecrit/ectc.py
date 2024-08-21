@@ -261,12 +261,21 @@ class TcRun(TcFamily):
             fname = membname(eps_memb, "eps_member_")
             run = fam.add_family(fname)
             run.add_variable("ECTC_ENS_MEMB", str(eps_memb))
+            
             trig = ""
+            trig_day = ""
             for pre in self.conf["pretypes"]: # mars, diss
                 trig = expr_and(trig, f"../../pre_{pre}/retrieve_ic_bc/{fname} == complete")
-            run.add_task("remap").add_trigger(trig)
-            run.add_task("icon").add_trigger("./remap == complete && ../../iconsoil == complete")
+                trig_day = expr_and(trig_day, f"../../../../pre_{pre}/retrieve_ic_bc/{fname} == complete")
 
+            rmd=run.add_family("remap_days")
+            rmd.add_family("remap_ana").add_task("remap_day").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0").add_trigger(trig_day)
+            nh = self.conf["forecastrange"]
+            for d in range(math.ceil(nh/24)):
+                rmd.add_family(f"remap_day_{d}").add_task("remap_day").add_variable("RETRIEVE_START", f"{d*24}").add_variable("RETRIEVE_STOP", f"{min((d+1)*24, nh)}").add_trigger(trig_day)
+
+            run.add_task("remap").add_trigger(trig).add_defstatus(ecflow.Defstatus("complete"))
+            run.add_task("icon").add_trigger("./remap == complete && ./remap_days == complete && ../../iconsoil == complete")
 
 # Add a family for regribbing for cluster analysis and writing to fdb for each member
 class TcRegribFdb(TcFamily):

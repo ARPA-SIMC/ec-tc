@@ -18,7 +18,7 @@ PARAM=SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
 $geoinfo,
 EXPVER=$expid,
 $marsinfo,
-INTERPOLATION=NEAREST LSM,
+INTERPOLATION=LINEAR,
 TARGET="data/ec_${refdate}${reftime}_surf.0"
 
 RETRIEVE,
@@ -29,13 +29,40 @@ PARAM=Z,
 $marsinfo_const,
 INTERPOLATION=LINEAR
 
+# SST on gaussian grid
 RETRIEVE,
 LEVTYPE=SFC,
+GRID=AV,
+AREA=OFF,
 LEVELIST=OFF,
-REPRES=GG,
 PARAM=SST,
-$marsinfo,
-INTERPOLATION=NEAREST LSM
+$marsinfo,   ## ens member number / deterministic / control ##
+FIELDSET=sst
+
+# LSM on gaussian grid (this is a constant file, it could be extracted once for all)
+RETRIEVE,
+$marsinfo_const,
+LEVTYPE=SFC,
+PARAM=LSM,
+ACCURACY= 16,
+FIELDSET=lsm
+
+# Compute "masked" SST
+COMPUTE,
+  fieldset = lsmbitmap,
+  formula  = "bitmap((lsm>=0.5),1)"
+COMPUTE,
+  fieldset = sst_mask,
+  formula  = "bitmap(sst,lsmbitmap)"
+WRITE,
+  fieldset = sst_mask,
+  target   = "sst_mask.grib"
+READ,
+  source        = "sst_mask.grib",
+  $geoinfo,
+  LEVTYPE       = SFC,
+  INTERPOLATION = NEAREST LSM,
+  TARGET        = "data/ec_${refdate}${reftime}_surf.0"
 
 FINIFINI
 
@@ -75,10 +102,12 @@ $marsinfo_const,
 TARGET="data/ec_${refdate}${reftime}_ggslt.0"
 
 FINIFINI
+
 mars req_${refdate}${reftime}_ana1
 mars req_${refdate}${reftime}_ana2
 mars req_${refdate}${reftime}_ana3
-rm -f req_${refdate}${reftime}_ana?
+cp req_${refdate}${reftime}_ana? sst_mask.grib /ec/ws1/tc/zcl2/tcwork/tmp/remap_debug #debug
+rm -f req_${refdate}${reftime}_ana? sst_mask.grib
 }
 
 
@@ -104,6 +133,7 @@ LEVELIST=1
 FINIFINI
 
 mars req_ml_$RETRIEVE_STOP
+cp req_ml_$RETRIEVE_STOP /ec/ws1/tc/zcl2/tcwork/tmp/remap_debug #debug
 rm -f req_ml_$RETRIEVE_STOP
 }
 
@@ -138,6 +168,7 @@ FINIFINI
 done
 
 mars req_smicomp_$RETRIEVE_STOP
+cp req_smicomp_$RETRIEVE_STOP /ec/ws1/tc/zcl2/tcwork/tmp/remap_debug #debug
 rm -f $tmpgrib
 
 }

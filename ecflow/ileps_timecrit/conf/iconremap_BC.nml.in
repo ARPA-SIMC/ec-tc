@@ -49,21 +49,6 @@
  outputname     = "QR"
  intp_method = 3
 /
-&input_field_nml  ! cloud liquid water content
- inputname      = "CLWC"
- outputname     = "QC"
- intp_method = 3
-/
-&input_field_nml  ! cloud ice content
- inputname      = "CIWC"
- outputname     = "QI"
- intp_method = 3
-/
-&input_field_nml  ! rain water content
- inputname      = "CRWC"
- outputname     = "QR"
- intp_method = 3
-/
 &input_field_nml  ! snow water content
  inputname      = "CSWC"
  outputname     = "QS"

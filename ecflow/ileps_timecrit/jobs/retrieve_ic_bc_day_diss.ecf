@@ -149,6 +149,7 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
     if [ "$ENS_MEMB" = 0 ]; then
         dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
         dissdate=${dissdate_const:0:15}1 # real analysis is stored with +1'
+        grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib
     else   
         if [ "$lag" = 0 ]; then
             dissdate=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
@@ -161,8 +162,12 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
         fi
         grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib
     fi
+# 20240802: in present dissemination, the file CTDmmddhh00mmddhh001 contains two copies of "soil type"
+# constatn field, with different resolutions (0.1 and 0.2).
+# It is necessary to remove the one with reduced resolution to prevent iconremap errors 
     if [ -n "$dissdate_const" ]; then
-        cat $EC_DISS/$disspref$dissdate_const$expid >> tmp.grib
+        grib_copy -w iDirectionIncrement=100 $EC_DISS/$disspref$dissdate_const$expid const.grib
+        cat const.grib >> tmp.grib
     fi
 
 # TODO here compute SMI

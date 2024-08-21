@@ -9,16 +9,16 @@
  steps_per_file               = 1
  mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .FALSE.
- output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_plev_all2km_A2P0"
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_plev_all5km"
  filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
  ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
- pl_varlist                   = temp,qv,geopot
+ pl_varlist                   = "temp","qv","geopot"
  p_levels                     = 50000.,70000.,85000.
  output_grid                  = .FALSE.
  stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
  remap                        = 1   !0 in case unstructured grid is required                
- reg_lon_def                  = 3.0,0.025,22.001
- reg_lat_def                  = 33.7,0.02,48.901
+ reg_lon_def                  = -10.7,0.05,37.301
+ reg_lat_def                  = 28.5,0.04,59.501
 /
 
 &output_nml
@@ -30,19 +30,19 @@
  steps_per_file               = 1
  mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .FALSE.
- output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_surf_all2km_A2P0"
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_surf_all2.5km"
  filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
  ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
 ! aggiunto t_seasfc da Thomas, sostituiti tqc,tqi,tqr,tqs,tqg con twater
- ml_varlist                   = t_2m,td_2m,u_10m,v_10m,gust10,
-                                tot_prec,rain_con,rain_gsp,snow_con,snow_gsp,graupel_gsp,clct,
-                                asob_s,pres_msl,pres_sfc,
-                                cape_ml,lpi
+ ml_varlist                   = "t_2m","td_2m","u_10m","v_10m","gust10","t_g",
+                                "tot_prec","rain_con","rain_gsp","snow_con","snow_gsp","graupel_gsp","clct",
+                                "asob_s","athb_s","pres_msl","alhfl_s","ashfl_s",
+                                "cape_ml","lpi"
  output_grid                  = .FALSE.
  stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
  remap                        = 1   !0 in case unstructured grid is required                
- reg_lon_def                  = 3.0,0.025,22.001
- reg_lat_def                  = 33.7,0.02,48.901
+ reg_lon_def                  = -10.7,0.025,37.301
+ reg_lat_def                  = 28.5,0.02,59.501
 /
 
 &output_nml
@@ -57,10 +57,10 @@
  output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_static_all2km_A2P0"
  filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
  ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
- ml_varlist                   = topography_c,fr_land
+ ml_varlist                   = "topography_c","fr_land"
  output_grid                  = .FALSE.
  stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased         
  remap                        = 1   !0 in case unstructured grid is required                
- reg_lon_def                  = 3.0,0.025,22.001
- reg_lat_def                  = 33.7,0.02,48.901
+ reg_lon_def                  = -10.7,0.025,37.301
+ reg_lat_def                  = 28.5,0.02,59.501
 /

@@ -1,7 +1,8 @@
 # this script is sourced with set -a (automatic export), so there is
 # no need to export every single variable
 
-MODEL_STOP=6 # 132
+MODEL_STOP_00=120  # 120
+MODEL_STOP_12=0  # 84
 ENS_TOTAL_MEMB=4 # this must coincide with the value in suite definition until there will be a mechanism to dynamically reduce the number of members
 GRIB_CENTER=80
 GRIB_SUBCENTER=255
@@ -14,6 +15,7 @@ CLUST_ANA_DIR=$ECTC_WORK/clust_ana
 RETRIEVE_IC_BC_DIR=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
 RETRIEVE_IC_BC_DIR_COMMON=$ECTC_WORK/retrieve_ic_bc.$ENS_MEMB
 REMAP_DIR=$ECTC_WORK/remap.$ENS_MEMB
+REMAP_DIR_DAY=$ECTC_WORK/remap.$ENS_MEMB.$RETRIEVE_STOP
 MODEL_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
 BIN_DIR=$ECTC_WORKBASE/bin

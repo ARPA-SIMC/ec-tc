@@ -1,0 +1,87 @@
+%include <sched_prolog.h>
+%include <sched_parallel_remap.h>
+%include <script_prolog.h>
+%include <mod_icon.h>
+
+safe_rm_rf $REMAP_DIR_DAY
+
+mkdir -p $REMAP_DIR
+mkdir -p $REMAP_DIR/data
+mkdir -p $REMAP_DIR_DAY
+mkdir -p $REMAP_DIR_DAY/data
+cd $REMAP_DIR_DAY
+
+# data in $RETRIEVE_IC_BC_DIR_COMMON/data/ec_202308300000+0132.grib
+# ec_${DATE}${TIME}+$(printf "%%04d" $clepstep).grib
+#datafile=...
+
+# verify for OpenMP
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+# Script variables depending on ensemble member
+if [ "$ENS_MEMB" = 0 ] ; then # deterministic
+    hincbd=$DET_HINCBD
+    export MODEL_NCSTORE=${MODEL_NCSTORE_ROOT}.det.nc
+    export IN_GRID=${IN_GRID_ROOT}.det.grib
+else                          # ens member or control
+    hincbd=$EPS_HINCBD
+    export MODEL_NCSTORE=${MODEL_NCSTORE_ROOT}.ens.nc
+    export IN_GRID=${IN_GRID_ROOT}.ens.grib
+fi
+
+if [ $TIME = "0000" ] ; then
+  export MODEL_STOP=$MODEL_STOP_00
+elif [ $TIME = "1200" ] ; then
+  export MODEL_STOP=$MODEL_STOP_12
+fi
+
+# Analysis and BC+0
+if [ $RETRIEVE_STOP = 0 ] ; then
+# IC
+    export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+    export OUT_FILE=$REMAP_DIR/data/ic_${DATE}${TIME}.nc
+    mkdir $REMAP_DIR_DAY/ic
+    cd $REMAP_DIR_DAY/ic
+    conf_template iconremap_IC.nml
+    srun $BIN_DIR/iconremap -vvv --remap_nml=iconremap_IC.nml >iconremap.log 2>&1
+
+# BC+0
+    export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+    export OUT_FILE=$REMAP_DIR/data/lbc_${DATE}${TIME}_00000000.nc
+    mkdir $REMAP_DIR_DAY/bc.0
+    cd $REMAP_DIR_DAY/bc.0
+    conf_template iconremap_BC.nml
+    srun $BIN_DIR/iconremap -vvv --remap_nml=iconremap_BC.nml >iconremap.log 2>&1
+
+# All other boundary conditions 
+else
+    tr_first=$(($RETRIEVE_START+$hincbd))
+    if [ $MODEL_STOP -le $RETRIEVE_STOP ] ; then
+        tr_last=$MODEL_STOP
+    else
+        tr_last=$RETRIEVE_STOP
+    fi
+    for trange in $(seq $tr_first $hincbd $tr_last) ; do
+        dd=`printf "%%02d" $((trange/24))`
+        hh=`printf "%%02d" $((trange%%24))`
+
+# at steps >0, add hybrid level surface orography (FI) to lbc file. 
+# It would be more elegant to do it in retrieve phase but an additional task would
+# be needed because we need IC and BC simultaneously
+        export IN_FILE=$RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).z.grib
+        grib_set -s stepRange=$trange -w shortName=FI -S $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib $IN_FILE
+        cat $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $trange).grib >> $IN_FILE
+
+        export OUT_FILE=$REMAP_DIR/data/lbc_${DATE}${TIME}_${dd}${hh}0000.nc
+        mkdir $REMAP_DIR_DAY/bc.$trange
+        cd $REMAP_DIR_DAY/bc.$trange
+        conf_template iconremap_BC.nml
+        srun $BIN_DIR/iconremap -vvv --remap_nml=iconremap_BC.nml > iconremap.log 2>&1
+   done
+fi
+
+%include <tail.h>

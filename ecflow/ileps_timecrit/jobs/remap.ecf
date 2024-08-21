@@ -21,6 +21,11 @@ export ATP_MAX_CORES=0
 export ATP_ENABLED=1
 
 
+if [ $TIME = "0000" ] ; then
+  export MODEL_STOP=$MODEL_STOP_00
+elif [ $TIME = "1200" ] ; then
+  export MODEL_STOP=$MODEL_STOP_12
+fi
 
 if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     hincbd=$DET_HINCBD
@@ -78,7 +83,7 @@ done
 export OMP_NUM_THREADS=1
 for n in `seq 0 $(($c - 1))`; do
     cd $REMAP_DIR/dir.$n
-    srun --exclusive --mem=1G --ntasks=2 --cpus-per-task=1 -N 1 $BIN_DIR/iconremap -vvv --remap_nml=iconremap.nml > iconremap.log 2>&1 &
+    srun --exclusive --mem=32G --ntasks=2 --cpus-per-task=1 -N 1 $BIN_DIR/iconremap -vvv --remap_nml=iconremap.nml > iconremap.log 2>&1
 done
 
 cd $REMAP_DIR
