@@ -1,0 +1,170 @@
+%manual
+
+Description:  
+              This task create the directories where the cleps runs
+              will be performed.
+              It also copies important files and sets which LM runs are
+              performed with the Tiedtke or the Kain-Fritsch convection
+              scheme.
+
+Source:
+              task in  ~itm/cleps_timecrit/cleps_timecrit/cleps_timecrit/pre/configure.sms
+
+
+Mainframe:    ecgate (family pre, suite cleps_timecrit)
+
+
+For CONSOLE:
+              If task aborts, do not set complete. 
+              Please mail itm.
+
+%end
+#!/bin/ksh
+%include <init_serial.h>
+
+
+set -x
+set -e
+####################
+module load netcdf4
+##########################################################
+indate=%INDATE%  ####FIRST_DATE
+fidate=%FIDATE%  ###LAST_DATE
+intime=00
+fitime=21
+#
+mystart=$indate$intime
+mystop=$fidate$fitime
+yyyymm=`echo ${indate} |cut -c 1-6`
+#
+myrange=180
+EXPID=0001
+CLASS=od
+mydom=75.0/-25.0/25.0/70.0
+export MARS_MULTITARGET_STRICT_FORMAT=1
+###export MCEPERM=/perm/ms/it/mce
+###PREFIX=${MCEPERM}/prefix_forall
+###export B2NC_TABLES=$PREFIX/share/bufr2netcdf
+###export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PREFIX/lib/
+OBSDIR=$MAINDIR/'obs_2_rfdbk_'${yyyymm}
+OBSPREFIX=obs
+###########################################################
+###
+### 1) create directories,retrieve obs (SYNOP, TEMP, UPPER-AIR)
+###    and convert to netcdf format for Rfdbk
+date
+set +e
+/bin/rm -r      $OBSDIR
+set -e
+mkdir -p -m 755 $OBSDIR
+cd              $OBSDIR
+. ~itl/bin/smnd_profile
+
+#
+# Define makelink (useful later)
+#
+%nopp
+makelink() {
+# link first file
+    test -s "$1" && ln -sf $1 $2.nc
+# link following files if they exist
+    base=${1%.nc}
+    for file in $base.*.nc; do
+        if [ -s "$file" ]; then
+            ext=${file#$base}
+            ln -sf $file $2$ext
+        else
+            break
+        fi
+    done
+}
+%end
+
+
+mkdir mars_rd.$$
+cd    mars_rd.$$
+echo "Temporary directory created: $OBSDIR/mars_rd.$$"
+#######################################################
+while [ $mystart -le $mystop ] ; do
+  mydate=`echo $mystart |cut -c 1-8`
+  mytime=`echo $mystart |cut -c 9-10`
+  mytarget=$OBSDIR/$mystart
+  mkdir -p -m 755 ${mytarget}
+
+  cat > dirs1 << EOF1
+retrieve,
+    repres=bufr,
+    date=$mydate,
+    time=$mytime,
+    range=$myrange,
+    class=$CLASS,
+    type=ob,
+    obstype=S/SA/SA2/S2/VSNS/SLNS,
+    stream=da,
+    expver=$EXPID, 
+    area=$mydom,
+    TARGET=onestep.bufr
+END
+EOF1
+  mars dirs1
+  \cp onestep.bufr  ${mytarget}/${mystart}.bufr
+  cd  ${mytarget}
+#
+# from bufr to netcdf in 3 steps: 
+#   first "dbamsg convert", then "bufr2netcdf", finally "makelink"
+#
+  dbamsg convert  --bufr2netcdf-categories  --template=wmo  --rejected=obs_rejected.bufr  ${mystart}.bufr  > ${mystart}'_converted.bufr'
+  /bin/rm -f $OBSPREFIX*.nc
+  bufr2netcdf -o obs ${mystart}'_converted.bufr'
+#
+  makelink $OBSPREFIX-0-0-13.nc   'cdfin_synop'
+  makelink $OBSPREFIX-0-0-14.nc   'cdfin_synop_mob'
+  makelink $OBSPREFIX-1-0-255.nc  'cdfin_ship'
+  makelink $OBSPREFIX-2-4-255.nc  'cdfin_temp'
+  makelink $OBSPREFIX-2-5-255.nc  'cdfin_tempship'
+  makelink $OBSPREFIX-2-1-4.nc    'cdfin_pilot'
+  makelink $OBSPREFIX-2-1-5.nc    'cdfin_pilot_p'
+  makelink $OBSPREFIX-4-0-8.nc    'cdfin_amdar'
+  makelink $OBSPREFIX-4-0-9.nc    'cdfin_acars'
+
+  chmod 644 *.nc
+#
+# back to the "mars" directory and go to the next time step
+#
+  cd -
+  mystart=`dateincr -h $mystart +3`
+done
+
+
+#
+# Remove temporary directory
+#
+/bin/rm $OBSDIR/mars_rd.$$/*
+cd $OBSDIR
+/bin/rmdir mars_rd.$$
+
+date
+
+%include <tail.h>
+
+#
+# END OF JOB
+#
+#
+# Simply copy the files
+#
+  if [ -f $OBSPREFIX-0-0-13.nc ] ; then
+    cp  $OBSPREFIX-0-0-13.nc  cdfin_synop.nc
+  fi
+  if [ -f $OBSPREFIX-2-4-255.nc ] ; then
+    cp  $OBSPREFIX-2-4-255.nc  cdfin_temp.nc
+  fi
+  if [ -f $OBSPREFIX-4-0-8.nc ] ; then
+    cp  $OBSPREFIX-4-0-8.nc  cdfin_amdar.nc
+  fi
+  if [ -f $OBSPREFIX-4-0-9.nc ] ; then
+    cp  $OBSPREFIX-4-0-9.nc  cdfin_acars.nc
+  fi
+  if [ -f $OBSPREFIX-2-1-4.nc ] ; then
+    cp  $OBSPREFIX-2-1-4.nc  cdfin_pilot.nc
+  fi

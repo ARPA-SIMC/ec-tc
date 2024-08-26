@@ -1,0 +1,137 @@
+#!/bin/bash
+#SBATCH --qos=nf
+#SBATCH --account=spitrasp
+#SBATCH --job-name=get_synop
+#SBATCH --output=get_synop.log
+#SBATCH --error=get_synop.log
+#SBATCH --time=6:00:00
+#SBATCH --mail-type=FAIL
+
+#-------------------------------------------------------------------------------
+# Script to retreive GTS observations for the verification of NWP-TS,
+# convert them to netcdf and save them to ecfs
+# Script to handle extraction of full months (otherwise check the copy on ecfs) 
+# Use: get_synop.job data1 ndays (data1: YYYYMMDD)
+#-------------------------------------------------------------------------------
+set -x
+set -e
+
+# Command line
+if [ $# -ne 2 ] ; then
+  echo "Use get_synop.job data1 ndays"
+  echo "  data1: YYYYMMDD"
+  exit
+fi
+data1=$1
+ndays=$2
+
+# Constant settings
+#?# export MARS_MULTITARGET_STRICT_FORMAT=1
+
+ec_path=/itic/nwp_suite_HindcastMode/obs
+work_dir=${SCRATCH}/obs_nwpts
+myrange=180
+mydom=75.0/-25.0/25.0/70.0
+container=/home/ccdc/smnd_atos.sif
+
+# module load singularity
+module load apptainer
+cd $work_dir
+
+# Main loop (days)
+cnt=1
+while [ $cnt -le $ndays ] ; do
+  incr=$[$cnt-1]
+  datac=$(date -d "${data1} + ${incr}day" +%Y%m%d)
+  echo "### Processing date "$datac
+  
+  for hhc in 00 03 06 09 12 15 18 21 ; do
+    sub_dir=${datac}${hhc}
+    mkdir -p ${work_dir}/${sub_dir}
+    cd ${work_dir}/${sub_dir}
+    
+# Build the query
+    rm -f mars.query
+    cat > mars.query <<EOF
+retrieve,
+  repres=bufr,
+  date=$datac,
+  time=$hhc,
+  range=$myrange,
+  class=od,
+  type=ob,
+  obstype=S/SA/SA2/S2/VSNS/SLNS,
+  stream=da,
+  expver=0001, 
+  area=$mydom,
+  target=${datac}${hhc}.bufr
+END
+EOF
+
+# MARS retrieve
+    rm -f ${datac}${hhc}.bufr
+    mars mars.query
+
+# Convert to NetCDF
+    rm -f ${datac}${hhc}_converted.bufr obs*.nc cdfin*.nc
+    apptainer exec -B $SCRATCH $container \
+      dbamsg convert --bufr2netcdf-categories --template=wmo --rejected=obs_rejected.bufr ${datac}${hhc}.bufr > ${datac}${hhc}_converted.bufr
+    apptainer exec -B $SCRATCH $container \
+      bufr2netcdf -o obs ${datac}${hhc}_converted.bufr
+
+# Create links with "meaningful" names
+    for file in $(ls obs-*.nc) ; do
+      keys=$(echo $file | cut -d - -f 2- | cut -d . -f 1)
+      ext=$(echo $file | cut -d . -f 2-)
+      case $keys in
+        0-0-13)
+        label=synop
+        ;;
+        0-0-14)
+        label=synop_mob
+        ;;
+        1-0-255)
+        label=ship
+        ;;
+        2-4-255)
+        label=temp
+        ;;
+        2-5-255)
+        label=tempship
+        ;;
+        2-1-4)
+        label=pilot
+        ;;
+        2-1-5)
+        label=pilot_p
+        ;;
+        4-0-8)
+        label=amdar
+        ;;
+        4-0-9)
+        label=acars
+        ;;
+        *)
+        echo "Unknown keys: "$keys
+        exit
+      esac
+      ln -s $file cdfin_${label}.${ext}
+    done
+    chmod 644 *.nc
+
+  done
+
+# Create tar file for archive on ecfs
+  cd $work_dir
+  rm -f ${datac}.tar ${datac}.tar.gz
+  tar -cf ${datac}.tar ${datac}??
+  gzip ${datac}.tar
+  
+  cnt=$[$cnt+1] 
+done
+
+yyyymm=${data1:0:6}
+emkdir -p ec:${ec_path}/${yyyymm}
+ecp ${yyyymm}??.tar.gz ec:${ec_path}/${yyyymm}
+
+exit

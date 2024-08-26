@@ -1,0 +1,129 @@
+%manual
+
+Description:
+              This task copies to ecfs (after recoding) the output files 
+              produced by the icon-ts.
+              It is assumed that Icon run lasts 31 days (from 01 to 31 of 
+              a celendar month), and that it is split in 5 days restarts.
+
+Source:
+              task in    ~itic/nwptsH_ecflow/nwptsICON/ecffiles
+
+
+Mainframe:    atos (family archive, suite nwptsH)
+
+%end
+#!/bin/bash
+
+%include <init_serial.h>
+%include <head.h>
+%include <gen_proc_info.h>
+
+export DWDPERM=/perm/dwg/
+export ECCODES_DEFINITION_PATH=${DWDPERM}/grib_api_def/ec-2.23.0/definitions.edzw:${DWDPERM}/grib_api_def/ec-2.23.0/definitions
+export ECCODES_SAMPLES_PATH=${DWDPERM}/grib_api_def/ec-2.23.0/samples-19.1
+
+# Suffix for files archived in ECFS
+label=$VERSION 
+
+# Suite path (hardcoded in nwptshICON.def and exported by init_serial.h)
+# RUNDIR=/ec/res4/scratch/itic/nwptsH/%VERSION%/bc_ic_00
+# DOPOCORSA=/ec/res4/scratch/itic/nwptsH/%VERSION%/post_00
+#
+# Archive path in ECFS (hardcoded in the task definition in nwptshICON.def) 
+# BASEDIR=/itic/nwp_suite_HindcastMode/
+
+BASEDIR=%BASEDIR%
+cd $DOPOCORSA
+
+# Build grib filter
+# Note: the original script included also the instruction: "set setLocalDefinition = 1"
+# Apparently, this has no effect on grib files (it may be a remnant of old grib1 outputs)
+
+rm -f its.filt
+cat << EOF > its.filt
+set centre = $GRIB_API_CENTRE;
+set generatingProcessIdentifier = $GEN_PROC_ID;
+if (shortName is "QC" || shortName is "QI" || shortName is "QR" || shortName is "QS" ||
+    typeOfLevel is "generalVertical" || typeOfLevel is "depthBelowLandLayer" || typeOfLevel is "depthBelowLand") {
+  append "extra.grb";
+}
+else
+{
+  append "basic.grb";
+}
+EOF
+
+# Tranche of the run being processed
+YM=${YMD:0:6}
+DD=${YMD:6:2}
+
+# *** TEMPORARY *** Find the names of input and output directories  
+input_dir=${RUNDIR}/${YMD}00_test_2p8
+ecf_dir=ec:/mck/NWP-TS/${label}/${YM}
+emkdir -p $ecf_dir
+echmod 755 ec:/mck/NWP-TS/${label}
+echmod 755 ec:/mck/NWP-TS/${label}/${YM}
+
+# Find the names of input and output directories  
+# input_dir=${RUNDIR}/${YMD}00_test_2p8
+# ecf_dir=ec:${BASEDIR}/${label}/${YM}
+# emkdir -p $ecf_dir
+# echmod 755 ec:${BASEDIR}/${label}
+# echmod 755 ec:${BASEDIR}/${label}/${YM}
+
+# If this is the first tranche, copy to ECFS the constant fields
+if [ $DD = "01" ] ; then
+  cfile_in="ICON-LAM_Testsuite_00000000c.grb"
+  cfile_out="ITS_"${label}"_constant.grb"
+  ls -l ${input_dir}/${cfile_in}
+  ecp -o ${input_dir}/${cfile_in} ${ecf_dir}/${cfile_out}
+  echmod 644 ${ecf_dir}/${cfile_out}
+fi
+
+# Main loop (forecast days)
+if [ $DD = "31" ] ; then
+  day_list="0"
+else
+  day_list="0 1 2 3 4"
+fi
+for day in $day_list ; do
+
+# Find the names of input files
+# If processing the first day of the month, also process the initial conditions
+  cal_day=$(($DD+$day))
+  cal_daym1=$(($cal_day-1))
+  tr_day1=$(printf %%02g $cal_daym1)
+  tr_day2=$(printf %%02g $cal_day)
+  calendar_date=$(date -d "${YMD} + ${day}day" +%%Y%%m%%d)
+
+  if [ $DD = "01" -a $day -eq 0 ] ; then
+    file_list="ICON-LAM_Testsuite_00000000.grb"
+  else
+    file_list=""
+  fi
+
+  for tr_hh in $(seq -f "%%02g" 23) ; do 
+    file_list=${file_list}" ICON-LAM_Testsuite_${tr_day1}${tr_hh}0000.grb"
+  done
+  file_list=${file_list}" ICON-LAM_Testsuite_${tr_day2}000000.grb"
+
+# Process input files
+  rm -f basic.grb extra.grb
+  for file in $file_list ; do
+    ls -l ${input_dir}/$file
+    grib_filter its.filt ${input_dir}/$file
+  done
+
+# Copy to ECFS
+  ecp -o basic.grb ${ecf_dir}/ITS_${label}_${calendar_date}_basic.grb 
+  echmod 644 ${ecf_dir}/ITS_${label}_${calendar_date}_basic.grb
+  ecp -o extra.grb ${ecf_dir}/ITS_${label}_${calendar_date}_extra.grb 
+  echmod 644 ${ecf_dir}/ITS_${label}_${calendar_date}_extra.grb
+
+done
+
+%include <tail.h>
+#
+# END OF JOB
+#

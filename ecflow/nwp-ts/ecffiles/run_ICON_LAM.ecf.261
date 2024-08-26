@@ -1,0 +1,587 @@
+%manual
+
+Description:  
+              This task runs ICON-LAM@coarse resolution
+
+Source:
+              task in  ~itic/nwptsH_ecflow/nwpts-ICON-LAM/nwptsH/nwp_suite_00/model
+
+
+Mainframe:    ecgate (family model, suite nwptsH)
+
+
+For CONSOLE:
+              If task aborts, do not set complete. 
+              Please mail itic.
+
+%end
+%include <init_parallel.h>
+%include <head.h>
+%include <ws_EccodesPath_ICON.h>
+
+
+set -x
+set -e
+
+#export ATP_ENABLED=1
+#export MPICH_RMA_OVER_DMAPP=1
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+#module load szip
+#module swap eccodes/2.12.5
+#module swap cdt/18.10
+#module load cray-netcdf
+#module load cray-hdf5
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SZIP_ROOT/lib
+#export LD_LIBRARY_PATH=$SZIP_ROOT/lib
+NLEV=%NLEV%
+TSTEP=%TSTEP%
+
+# ----------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------
+
+
+EXP="ICON-LAM_Testsuite"    # experiment identifier
+
+# working directory - needs to be changed for other users
+
+# data directory
+DATADIR=$RUNDIR
+EXPDIR=$DATADIR/${YMD}${starthour}_test_2p8
+
+# directory for grid and extpar files
+GRIDDIR=${DATADIR}
+EXTPDIR=${DATADIR}
+
+INITDIR=$DATADIR/Remapped_test_2p8/
+INITDIR_SOIL=$DATADIR/Remapped_test_2p8_ICON-EU/
+LBCDIR=$DATADIR/Remapped_test_2p8/lbc
+
+# ICON base directory
+# MODELBASE=/ec/ws2/tc/zcl/home/lami/srcintel/icon-2.6.5.1-openmpi
+MODELBASE=/ec/ws2/tc/zcl/home/lami/srcintel/icon-2.6.1-openmpi
+# path to binary
+#MODEL=${EXEC}/icon-nwp_2.6.1
+MODEL=${MODELBASE}/bin/icon
+
+# ----------------------------------------------------------------------
+# copy input data: grids, external parameters
+# ----------------------------------------------------------------------
+
+# the directory for the experiment will be created, if not already there
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+cd $EXPDIR
+
+# Link reduced radiation grid into EXPDIR
+ln -sf $GRIDDIR/icon-leps-2.5km_DOM01.parent.nc icon-leps-2.5km_DOM01.parent.nc
+# Link grid into EXPDIR
+ln -sf $GRIDDIR/icon-leps-2.5km_DOM01.nc icon-leps-2.5km_DOM01.nc
+# Link lateral boundary grid into EXPDIR
+ln -sf $LBCDIR/lateral_boundary.grid.nc lateral_boundary.grid.nc
+
+# Link external parameter file into EXPDIR
+ln -sf $EXTPDIR/external_parameter_icon_icon-leps-2.5km_DOM01_tiles.nc  external_parameter_icon_icon-leps-2.5km_DOM01_tiles.nc
+
+# Link initial data file into EXPDIR
+year=`echo $YMD |cut -c 1-4`
+month=`echo $YMD |cut -c 5-6`
+initIFS=init_ifsRed_${year}${month}0100.nc
+ln -sf $INITDIR/${initIFS}  ${initIFS}
+ln -sf $INITDIR_SOIL/igfff00000000.nc igfff00000000.nc
+ln -sf $INITDIR/lbc/SST_refresh.${YMD}.nc SST_refresh.nc
+ln -sf $INITDIR/lbc/SIC_refresh.${YMD}.nc SIC_refresh.nc
+ln -sf $INITDIR/lbc/SST_SIC_refresh.${YMD}.nc SST_SIC_refresh.nc
+#iln -sf $INITDIR_SOIL/iefff00000000.nc iefff00000000.nc
+#ln -sf $INITDIR_SOIL/lobotomia.nc igfff00000000.nc
+
+# files needed for radiation
+cp $MODELBASE/data/ECHAM6_CldOptProps.nc .
+cp $MODELBASE/data/rrtmg_lw.nc .
+
+ln -sf $MODELBASE/run/dict.latbc .
+
+
+# ----------------------------------------------------------------------
+# global namelist settings
+# ----------------------------------------------------------------------
+
+# the namelist filename
+atmo_namelist=NAMELIST_${EXP}
+
+# global timing
+day=`echo $YMD |cut -c 7-8`
+#start_date=${year}-${month}-${day}"T00:00:00Z"
+start_date=${year}-${month}"-01T00:00:00Z"
+ndays_restart=5
+dt_restart=$((${ndays_restart}*86400))
+
+if [[ ${day} == "01" ]] ; then
+   lrestart=.false.
+   FIRST_OUTPUT=0
+else
+   lrestart=.true.
+%nopp
+   YMD_lastRestart=$(date -d "${YMD} -${ndays_restart} day" +%Y%m%d)
+%end
+   ln -sf $DATADIR/${YMD_lastRestart}${starthour}_test_2p8/icon-leps-2.5km_DOM01_restart_atm_${YMD}T000000Z.nc ./restart_atm_DOM01.nc
+   FIRST_OUTPUT=$(( 86400 * ( ${day} - 1 ) ))                  #in seconds
+fi
+
+if [[ ${day} == "31" ]] ; then
+   DURATION=$(( 86400 / ${TSTEP} ))                    #in number of tsteps
+   LAST_OUTPUT=$(( 86400 + ${FIRST_OUTPUT} ))         #in seconds
+else
+   DURATION=$(( $dt_restart / ${TSTEP} ))              #in number of tsteps
+   LAST_OUTPUT=$(( ${dt_restart} + ${FIRST_OUTPUT} ))  #in seconds
+fi
+
+# initialization soil from ICON-EU only if first day
+if [[ ${day} == "01" ]] ; then
+   init_mode=3  #from IFS atm and ICON-EU soil
+else 
+   init_mode=2  #from IFS
+fi
+
+
+# the grid parameters
+atmo_dyn_grids=icon-leps-2.5km_DOM01.nc
+atmo_rad_grids=icon-leps-2.5km_DOM01.parent.nc
+
+#----------------------------------------------------------------------
+# create ICON master namelist
+# ----------------------------------------------------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart               = $lrestart
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ dt_restart          = $dt_restart
+/
+&master_model_nml
+  model_type=1
+  model_name="ATMO"
+  model_namelist_filename="$atmo_namelist"
+  model_min_rank=1
+  model_max_rank=65536
+  model_inc_rank=1
+/
+EOF
+
+# ----------------------------------------------------------------------
+# model namelists
+# ----------------------------------------------------------------------
+
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+plevels="5000,10000,15000,20000,25000,30000,40000,50000,70000,85000"
+
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma          =  8
+ p_test_run      = .false.
+ l_test_openmp   = .true.
+ l_log_checks    = .true.
+ num_io_procs    =  1 ! may be more if frequent output is written
+ num_restart_procs = 0
+ num_prefetch_proc = 1
+ itype_comm      =  1
+ iorder_sendrecv =  3
+/
+&grid_nml
+ dynamics_grid_filename  = ${dynamics_grid_filename}
+ radiation_grid_filename = ${radiation_grid_filename}
+ dynamics_parent_grid_id = 0,1
+ lredgrid_phys           = .true.
+ lfeedback               = .true.
+ l_limited_area          = .true.
+ ifeedback_type          = 2
+! start_time  = 0., ! irrelevant without nesting
+/
+&initicon_nml
+ init_mode                    = ${init_mode} ! For ICON-LAM runs, use 7 when initialized from ICON and 2 from IFS
+! use init_mode = 5 (IAU) otherwise, combined with  iterate_iau = .true., dt_shift = -1800 and dt_iau = 3600 (shorter IAU windows, e.g. +/- 5 min, may be tested)
+ zpbl1                        = 500.
+ zpbl2                        = 1000.
+ lread_ana                    = .false. ! true if analysis increments are read
+ ifs2icon_filename            = '${initIFS}' ! init_mode 2
+ dwdfg_filename               = 'igfff00000000.nc' ! init_mode 7
+ filetype                     = 4
+ ana_varnames_map_file        = "map_file.ana"
+ ltile_coldstart              = .TRUE.
+ ltile_init                   = .TRUE. ! True for IFS, False for ICON
+/
+&limarea_nml
+ itype_latbc     = 1
+ dtime_latbc     = 10800.
+ latbc_path      = '${LBCDIR}'
+ latbc_boundary_grid = 'lateral_boundary.grid.nc'
+ latbc_varnames_map_file = 'dict.latbc'
+! latbc_filename  =   'out<y><m><d><h>_lbc.nc'
+ !latbc_filename  =   'ifs_oper_T1279_<y><m><d><h>_for_lbc.nc'
+ latbc_filename  =   'ifs_oper_T1279_<y><m><d><h>_lbc.nc'
+ init_latbc_from_fg = .false.
+/
+&io_nml
+ itype_pres_msl               = 5
+ itype_rh                     = 1
+! output_nml_dict              = 'map_file.fc'
+ lmask_boundary               = .true. ! false in assimilation cycle
+ gust_interval  = 3600     !!IC: this is the default 
+ dt_checkpoint   = 0       !!IC: this is the default
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1
+ output_bounds                =  ${FIRST_OUTPUT},${LAST_OUTPUT},3600.    ! start, end, increment
+ steps_per_file               =  1
+ mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = '${EXP}'
+ filename_format              = '<output_filename>_structured_grid_<ddhhmmss>'                   ! file name base
+ ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'smi','TKE',  !! IC: 'qg' removed using itype_gscp=1
+'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi', 'group:land_vars', 'freshsnow', 'albdif',
+'t_2m','td_2m','rh_2m','pres_sfc','u_10m','v_10m','gust10','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S', 'ASHFL_S', 'ASOB_S', 'ASOB_T',
+ 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M','runoff_s','runoff_g','h_snow','topography_c'
+ output_grid                  =  .FALSE.
+ stream_partitions_ml = 1 ! needs to be adapted if num_io_procs is increased
+ remap = 1   !0 in case unstructured grid is required
+ north_pole  = -170.0,40.0
+ reg_lon_def = -15.75,0.0625,16.1875
+ reg_lat_def = -16.125,0.0625,9.8125
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1
+ output_bounds                =  ${FIRST_OUTPUT},${LAST_OUTPUT},3600.    ! start, end, increment
+ steps_per_file               =  1
+ mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = '${EXP}'
+ filename_format              = '<output_filename>_<ddhhmmss>'                   ! file name base
+ ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'smi','TKE',   !! IC: 'qg' removed using itype_gscp=1
+'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi', 'group:land_vars', 'freshsnow', 'albdif',
+'t_2m','td_2m','rh_2m','pres_sfc','u_10m','v_10m','gust10','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S', 'ASHFL_S', 'ASOB_S', 'ASOB_T',
+ 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M','runoff_s','runoff_g','h_snow'
+ output_grid                  =  .FALSE.
+ stream_partitions_ml = 1 ! needs to be adapted if num_io_procs is increased
+ remap = 0 !in case unstructured grid is required
+! north_pole  = -170.0,40.0
+! reg_lon_def = -15.75,0.0625,16.1875
+! reg_lat_def = -16.125,0.0625,9.8125
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1
+ output_bounds                =  ${FIRST_OUTPUT},${FIRST_OUTPUT},3600.    ! start, end, increment
+ steps_per_file               =  1
+ mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = '${EXP}'
+ filename_format              = '<output_filename>_<ddhhmmss>c'                   ! file name base
+ ml_varlist='z_ifc','topography_c','fr_land','DEPTH_LK', 'FR_LAKE', 'LAI', 'PLCOV', 'ROOTDP', 'SOILTYP', 'sso_stdh'
+ output_grid                  =  .FALSE.
+ stream_partitions_ml = 1 ! needs to be adapted if num_io_procs is increased
+ remap = 0   !1   !0 in case unstructured grid is required
+! north_pole  = -170.0,40.0
+! reg_lon_def = -15.75,0.0625,16.1875
+! reg_lat_def = -16.125,0.0625,9.8125
+/
+&output_nml
+ filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          =  1
+ output_bounds                =  ${FIRST_OUTPUT},${FIRST_OUTPUT},3600.    ! start, end, increment
+ steps_per_file               =  1
+ mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = '${EXP}'
+ filename_format              = '<output_filename>_<ddhhmmss>_4nest'                   ! file name base
+ ml_varlist='z_ifc','fr_land','t_ice','h_ice','t_mnw_lk','t_wml_lk','h_ml_lk','t_bot_lk','c_t_lk','gz0','fr_seaice'
+ output_grid                  =  .FALSE.
+ stream_partitions_ml = 1 ! needs to be adapted if num_io_procs is increased
+ remap = 0   !1   !0 in case unstructured grid is required
+! north_pole  = -170.0,40.0
+! reg_lon_def = -15.75,0.0625,16.1875
+! reg_lat_def = -16.125,0.0625,9.8125
+/
+&run_nml
+ num_lev        = ${NLEV}
+ lvert_nest     = .false.
+ nsteps         = ${DURATION}     !7200    !360    
+ dtime          = ${TSTEP}        !60.     ! timestep in seconds - 24. for R2B10, 
+ ldynamics      = .TRUE.       ! dynamics
+ ltransport     = .true.
+ ntracer        = 5
+ iforcing       = 3
+ ltestcase      = .false.
+ msg_level      = 12 ! 12 delivers more detailed report during integration
+ ltimer         = .true.
+ timers_level   = 10
+ check_uuid_gracefully = .true. !.false.  Set to True because of a problem in reading the restart files
+ output         = "nml"
+/
+&nwp_phy_nml
+!inwp_gscp       = 1, !!IC: this is the value of ICON-EU, while in the base ICON-LAM version is was:2,2,
+inwp_gscp       = 2,2,
+mu_rain         = 0.5
+rain_n0_factor  = 0.1
+inwp_convection = 1
+lshallowconv_only = .true.  !!IC: as we run at 2.5km, we don't need deep conv. param
+inwp_radiation  = 1
+inwp_cldcover   = 1
+inwp_turb       = 1
+inwp_satad      = 1
+inwp_sso        = 1
+inwp_gwd        = 0
+inwp_surface    = 1
+latm_above_top  = .true.
+ldetrain_conv_prec = .true.
+efdt_min_raylfric = 7200.
+itype_z0         = 2
+icapdcycl        = 3
+icpl_aero_conv   = 1
+icpl_aero_gscp   = 1
+icpl_o3_tp       = 1  
+dt_rad    = 720.,
+dt_conv   = 120.,
+dt_sso    = 120.,
+dt_gwd    = 120., !! IC: value of ICON-D2, while it was 360. in the base ICON-LAM version
+cldopt_filename    = 'ECHAM6_CldOptProps.nc '   !! IC: not present in the base ICON-LAM version
+lrtm_filename      = 'rrtmg_lw.nc'      !! IC: present in ICON-D2, not present in the base ICON-LAM version
+/
+&nwp_tuning_nml
+itune_albedo = 1
+tune_gkwake = 0.25,
+tune_gfrcrit = 0.333
+tune_gkdrag = 0.0
+tune_minsnowfrac = 0.3
+tune_box_liq_asy = 3.5, !! IC: value of ICON-D2, while it was 3.25 in the base ICON-LAM versi
+tune_sgsclifac   = 1.0, !! IC: present in ICON-D2, while not present in the base ICON-LAM ver
+tune_gust_factor = 7.25 !! IC: present in ICON-D2, while not present in the base ICON-LAM ver
+/
+&turbdiff_nml
+  tkhmin        = 0.5
+  tkmmin        = 0.75
+  pat_len       = 750.
+  tur_len       = 300.    
+  rat_sea       = 7.0
+  ltkesso       = .true.
+  frcsmot       = 0.2   ! these 2 switches together apply vertical smoothing of the TKE source terms
+  imode_frcsmot = 2     ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
+ ! use horizontal shear production terms with 1/SQRT(Ri) scaling to prevent unwanted side effects:
+  itype_sher    = 2    
+  ltkeshs       = .true.
+  a_hshr        = 2.0
+  icldm_turb    = 2
+  q_crit        = 2.0
+  imode_tkesso  = 2
+/
+&lnd_nml
+  ntiles         = 3
+  nlev_snow      = 3
+  lmulti_snow    = .false.
+  itype_snowevap = 3  !! IC: present in ICON-D2, while not present in the base ICON-LAM
+  itype_heatcond = 3
+  idiag_snowfrac = 20
+  lsnowtile      = .true.
+  lseaice        = .true.
+  llake          = .true.
+  itype_lndtbl   = 4
+  itype_evsl     = 4
+  itype_root     = 2
+  itype_trvg     = 3
+  lprog_albsi    = .true. !! IC: present in ICON-D2, while not present in the base ICON-LAM
+  itype_canopy   = 2      !! IC: present in ICON-D2, while not present in the base ICON-LAM
+  cwimax_ml      = 5.e-4
+  c_soil         = 1.25
+  c_soil_urb     = 0.5
+  sstice_mode    = 6
+  sst_td_filename = 'SST_SIC_refresh.nc'
+  ci_td_filename  = 'SST_SIC_refresh.nc'
+/
+&radiation_nml
+  irad_o3     = 79
+  irad_aero   = 6
+  albedo_type = 2          ! Modis albedo
+  islope_rad  = 0
+  vmr_co2     = 390.e-06   ! values representative for 2012
+  vmr_ch4     = 1800.e-09
+  vmr_n2o     = 322.0e-09
+  vmr_o2      = 0.20946
+  vmr_cfc11   = 240.e-12
+  vmr_cfc12   = 532.e-12 
+/
+&nonhydrostatic_nml
+  iadv_rhotheta   = 2
+  ivctype         = 2
+  itime_scheme    = 4
+  exner_expol     = 0.333
+  vwind_offctr    = 0.2
+  damp_height     = 12250.     
+  rayleigh_coeff  = 5.0
+! the following divergence damping settings should also be used in assimilation cycle; the settings used in the global
+! DA cycle might compromise the dynamics of convection
+  divdamp_fac     = 0.004
+  divdamp_order   = 24
+  divdamp_type    = 32
+!  divdamp_trans_start = 12500.  !!IC: value not present in ICON-D2, while present in the ICO
+!  divdamp_trans_end   = 17500.  !!IC: value not present ICON-D2, while present in the ICON-L
+  l_open_ubc      = .false.
+  igradp_method   = 3
+  l_zdiffu_t      = .true.
+  thslp_zdiffu    = 0.02
+  thhgtd_zdiffu   = 125.
+  htop_moist_proc = 22500.
+  hbot_qvsubstep  = 22500.   !!IC: in ICON-EU it was:16000, but we keep ICON-D2 setup for the vertical levels
+/
+&sleve_nml
+ min_lay_thckn   = 20.
+ itype_laydistr  = 1
+ top_height      = 22000.  !!IC: same setup as ICON-D2
+ stretch_fac     = 0.65
+ decay_scale_1   = 4000.
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000.  !!IC: same setup as ICON-D2
+/
+&dynamics_nml
+ iequations     = 3
+ idiv_method    = 1
+ divavg_cntrwgt = 0.50
+ lcoriolis      = .true.
+/
+&transport_nml
+ ctracer_list = '12345'
+ ivadv_tracer = 3,3,3,3,3,3
+ itype_hlimit = 3,4,4,4,4,4
+ ihadv_tracer = 52,2,2,2,2,2
+ llsq_svd       = .TRUE.  !!IC: commented out in ICON-EU, but these are the default values anyway so I keep them
+ beta_fct       = 1.005   !!IC: commented out in ICON-EU, but these are the default values anyway so I keep them
+/
+&diffusion_nml
+ hdiff_order      = 5
+ itype_vn_diffu   = 1
+ itype_t_diffu    = 2
+ hdiff_efdt_ratio = 24
+ hdiff_smag_fac   = 0.025
+ lhdiff_vn        = .true.
+ lhdiff_temp      = .true.
+/
+&interpol_nml
+  nudge_zone_width = 10
+  nudge_max_coeff  = 0.075   !! IC: value of ICON-D2, while it was 0.05 in the base ICON-LAM 
+  lsq_high_ord     = 3
+  l_intp_c2l       = .true.
+  l_mono_c2l       = .true.
+!  support_baryctr_intp = .true.
+/
+&gridref_nml
+ grf_intmethod_e  = 6
+ grf_intmethod_ct = 2
+ grf_tracfbk      = 2
+ denom_diffu_v    = 150.
+/
+&extpar_nml
+ itopo                = 1
+ n_iter_smooth_topo   = 1,
+ hgtdiff_max_smooth_topo = 750.,
+ heightdiff_threshold = 2250.,
+ itype_vegetation_cycle = 1 ! 2 is actually the ICON-D2 setup but needs T2M-CLIM data which is not available from extpar web ui
+ extpar_filename      = 'external_parameter_icon_icon-leps-2.5km_DOM01_tiles.nc'
+/
+EOF
+cat > map_file.ana << EOF2
+# internal name     GRIB2 shortName
+theta_v             THETA_V
+rho                 DEN
+vn                  VN
+u                   U
+v                   V
+w                   W
+tke                 TKE
+temp                T
+pres                P
+qv                  QV
+qc                  QC
+qi                  QI
+qr                  QR
+qs                  QS
+t_g                 T_G
+qv_s                QV_S
+fr_seaice           FR_ICE
+t_seasfc            T_SEA
+alb_si              ALB_SEAICE
+t_ice               T_ICE
+h_ice               H_ICE
+t_snow              T_SNOW
+freshsnow           FRESHSNW
+plantevap           EVAP_PL
+snowfrac_lc         SNOWC
+w_snow              W_SNOW
+rho_snow            RHO_SNOW
+h_snow              H_SNOW
+w_i                 W_I
+w_so                W_SO
+w_so_ice            W_SO_ICE
+t_so                T_SO
+smi                 SMI
+gz0                 Z0
+pres_sfc            PS
+z_ifc               HHL
+t_mnw_lk            T_MNW_LK
+t_wml_lk            T_WML_LK
+h_ml_lk             H_ML_LK
+t_bot_lk            T_BOT_LK
+c_t_lk              C_T_LK
+t_b1_lk             T_B1_LK
+h_b1_lk             H_B1_LK
+EOF2
+
+# ----------------------------------------------------------------------
+# run the model!
+# ----------------------------------------------------------------------
+ln -sf $MODEL icon.exe
+# aprun  -n 180 -N 18 -j 2 -d 4 -m 3g icon.exe
+
+#aprun  -ss -N $EC_tasks_per_node  -n $EC_total_tasks  -j $EC_hyperthreads   icon.exe
+#aprun  -ss -N $EC_tasks_per_node  -n $EC_total_tasks  -d $EC_threads_per_task  -j $EC_hyperthreads   icon.exe
+#aprun  -ss -N 36  -n 72  -d 1  -j 1   icon.exe
+
+# ulimit -s unlimited
+ulimit -a
+srun  ./icon.exe
+
+#srun  ls
+#mpirun ./icon.exe
+#./icon.exe
+
+
+date
+
+
+
+
+%include <tail.h>
+#
+# END OF JOB
+#
