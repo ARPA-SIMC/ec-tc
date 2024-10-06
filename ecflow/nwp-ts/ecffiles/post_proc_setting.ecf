@@ -1,0 +1,62 @@
+%manual
+
+Description:  
+              This task create the directories where the LM det run
+              is performed.
+              It also copies important files and sets which LM runs are
+              performed with the Tiedtke or the Kain-Fritsch convection
+              scheme.
+
+Source:
+              task in 
+~itm/cleps_timecrit/cleps_timecrit/cleps_timecrit/lokal_det/setup_lokal_det.sms
+
+
+Mainframe:    ecgate (family lokal_det, suite cleps_timecrit)
+
+
+For CONSOLE:
+              If task aborts, do not set complete. 
+              Please mail itm.
+
+%end
+
+#!/bin/ksh
+%include <init_serial.h>
+%include <head.h>
+
+
+set -x
+set -e
+###########################################################
+nclmax=$NMEMBER
+###########################################################
+###
+### 1) check if physiographic data and orography file 
+###    are in the right place
+###
+cd $MAINDIR
+
+
+###
+### 2) create directory for "LM-det" run
+###
+
+###
+### create 3 directory
+###
+# 1) input    where to store initially the files (don't use cp, but mv)
+
+# 2) error    where files are placed during versus processing; at the end of post-processing,
+#             this directory should be empty;
+
+# 3) backup   where files are placed after a successful post-processing
+
+### maybe run on ecgate and not on c2a?????
+
+
+
+%include <tail.h>
+#
+# END OF JOB
+#

@@ -1,0 +1,242 @@
+%manual
+
+Description:  
+              This task create remapped BC fields for ICON-LAM@coarse resolution
+
+Source:
+              task in  ~itic/nwptsH_ecflow/nwpts-ICON-LAM/nwptsH/nwp_suite_00/model/remap_coarse
+
+
+Mainframe:    ecgate (family model, suite nwptsH)
+
+
+For CONSOLE:
+              If task aborts, do not set complete. 
+              Please mail itic.
+
+%end
+
+%include <init_serial_remap.h>
+%include <head.h>
+%include <ws_EccodesPath_ICON.h>
+
+set -x
+set -e
+
+#test -r /etc/ksh.kshrc && . /etc/ksh.kshrc
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+# ICON-NWP grid
+GRID=%GRID%
+
+# ----------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------
+
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+
+# SETTINGS: DIRECTORIES AND INPUT/OUTPUT FILE NAMES --------------------------
+DATABASE_DIR=${RUNDIR}
+
+# directory containing DWD icon tools binaries
+ICONTOOLS_DIR=${EXEC}/icontools
+
+# file name of input grid, for IFS this is the initial data file
+INGRID=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/ifs_oper_T1279_"$YMD""$starthour".grb
+
+# file name of limited-area (output) grid
+LOCALGRID=${DATABASE_DIR}/${GRID}_DOM01.nc
+
+# directory and filename of initial file
+DATAFILE_DIR=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/
+
+%nopp
+dateFormatted=$(date -d "${YMD}" +%Y-%m-%d)
+p1YMD=$(date -d "${dateFormatted} +1 day" +%Y%m%d)
+p2YMD=$(date -d "${dateFormatted} +2 day" +%Y%m%d)
+p3YMD=$(date -d "${dateFormatted} +3 day" +%Y%m%d)
+p4YMD=$(date -d "${dateFormatted} +4 day" +%Y%m%d)
+p5YMD=$(date -d "${dateFormatted} +5 day" +%Y%m%d)
+%end
+
+giorno=`echo $YMD |cut -c 7-8`
+if [[ ${giorno} == "31" ]]; then
+   DAYLIST=( "${YMD}" "${p1YMD}" )
+   LASTDAY=${p1YMD}
+else
+   DAYLIST=( "${YMD}" "${p1YMD}" "${p2YMD}" "${p3YMD}" "${p4YMD}" "${p5YMD}" )
+   LASTDAY=${p5YMD}
+fi
+HOURLIST=( "00" "03" "06" "09" "12" "15" "18" "21" )
+
+# output directory for extracted boundary data
+OUTDIR=${DATABASE_DIR}/Remapped_test_2p8/lbc
+
+BINARY_ICONSUB=iconsub
+BINARY_REMAP=iconremap
+
+# grid file defining the lateral boundary
+AUXGRID="lateral_boundary"
+
+#-----------------------------------------------------------------------------
+# PART I: Create auxiliary grid file which contains only the cells of the 
+#         boundary zone.
+#-----------------------------------------------------------------------------
+
+
+mkdir -p ${OUTDIR}
+cd ${OUTDIR}
+
+cat > NAMELIST_ICONSUB << EOF_1
+&iconsub_nml
+  grid_filename    = '${LOCALGRID}',
+  output_type      = 4,
+  lwrite_grid      = .TRUE.,
+/
+&subarea_nml
+  ORDER            = "${OUTDIR}/${AUXGRID}",
+  grf_info_file    = '${LOCALGRID}',
+  min_refin_c_ctrl = 1
+  max_refin_c_ctrl = 14
+/
+EOF_1
+
+#time aprun  -N $EC_tasks_per_node  -n $EC_total_tasks  -d $EC_threads_per_task  -j $EC_hyperthreads \
+#             ${ICONTOOLS_DIR}/${BINARY_ICONSUB}  --nml NAMELIST_ICONSUB 2>&1
+
+${ICONTOOLS_DIR}/${BINARY_ICONSUB}  --nml NAMELIST_ICONSUB 
+
+#-----------------------------------------------------------------------------
+# PART II: Extract boundary data
+#-----------------------------------------------------------------------------
+
+rm -f ncstorage.tmp*
+intp_method=3
+
+set +x
+cat > NAMELIST_ICONREMAP_FIELDS << EOF
+!
+&input_field_nml  ! vertical velocity
+ inputname      = "OMEGA"
+ outputname     = "W"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! temperature
+ inputname      = "T"
+ outputname     = "T"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! specific humidity
+ inputname      = "QV"
+ outputname     = "QV"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! cloud liquid water content
+ inputname      = "CLWC"
+ outputname     = "QC"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! cloud ice content
+ inputname      = "CIWC"
+ outputname     = "QI"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! snow water content
+ inputname      = "CSWC"
+ outputname     = "QS"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! horiz. wind comp. u
+ inputname      = "U"
+ outputname     = "U"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! horiz. wind comp. v
+ inputname      = "V"
+ outputname     = "V"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! surface pressure
+ inputname      = "LNSP"
+ outputname     = "LNPS" 
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! geopotential
+ inputname      = "Z"
+ outputname     = "GEOP_SFC"
+ intp_method = ${intp_method}
+ loptional      = .TRUE.
+/
+&input_field_nml  ! geopotential
+ inputname      = "FI"
+ outputname     = "GEOP_ML" 
+ intp_method = ${intp_method}
+ loptional      = .TRUE.
+/
+EOF
+set -x
+
+for day in "${DAYLIST[@]}" ; do
+   for hour in "${HOURLIST[@]}"; do
+       datafile="ifs_oper_T1279_"${day}${hour}
+       if [[ $day == $LASTDAY ]] && [[ $hour != "00" ]]; then 
+          break
+       else
+          echo $datafile
+       fi
+
+cat > NAMELIST_ICONREMAP << EOF_2C
+&remap_nml
+ in_grid_filename  = '${INGRID}'
+ in_filename       = '${DATAFILE_DIR}/${datafile}.grb'
+ in_type           = 1
+ out_grid_filename = '${OUTDIR}/${AUXGRID}.grid.nc'
+ out_filename      = '${OUTDIR}/${datafile}_lbc.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage.tmp"
+/
+EOF_2C
+
+   ###time aprun  -n 1 -N 1 -j 1 -d 4 -m 32g  ${ICONTOOLS_DIR}/${BINARY_REMAP} -q \
+#   time aprun  -N $EC_tasks_per_node  -n $EC_total_tasks  -d $EC_threads_per_task  -j $EC_hyperthreads\
+#            ${ICONTOOLS_DIR}/${BINARY_REMAP} -q --remap_nml NAMELIST_ICONREMAP \
+#            --input_field_nml NAMELIST_ICONREMAP_FIELDS 2>&1
+
+   ${ICONTOOLS_DIR}/${BINARY_REMAP} -q --remap_nml NAMELIST_ICONREMAP \
+            --input_field_nml NAMELIST_ICONREMAP_FIELDS
+
+#   ret=$?
+#   if [[ $ret -eq 99 ]]; then
+#      ecflow_client --abort="ICONREMAP failed with STOP 99"
+#      exit $ret
+#   fi
+
+   ###Check if data have been indeed created
+   if [ ! -f ${OUTDIR}/${datafile}_lbc.nc ] ; then
+      ecflow_client --abort="${OUTDIR}/${datafile}_lbc.nc"
+      exit 0
+   fi
+
+   done  #close cycle over hours
+done  #close cycle over days
+
+date
+
+
+%include <tail.h>
+#
+# END OF JOB
+#

@@ -1,0 +1,53 @@
+%manual
+
+Description:  
+              This task create the directories where the NWPTS runs
+              will be performed.
+
+Source:
+              task in  ~itic/nwptsH_ecflow/nwpts-ICON-LAM/nwptsH/nwp_suite_00/pre/configure.sms
+
+
+Mainframe:    ecgate (family pre, suite nwptsH)
+
+
+For CONSOLE:
+              If task aborts, do not set complete. 
+              Please mail itic.
+
+%end
+
+%include <init_serial.h>
+%include <head.h>
+
+set -x
+set -e
+
+# ICON-NWP grid
+GRID=%GRID%
+
+sleep 7 ### to have a bit of time to suspend something
+
+# If needed, retrieve physiographic data and orography file from ecfs
+if [ ! -f $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/${GRID}_DOM01.nc ] ; then
+  ecp ec:/itic/nwp_suite_HindcastMode/ICON-LAM/ICON-domain/icon-leps_${GRID}/*  $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/.
+fi
+
+# Build the tree of working directories
+cd $MAINDIR
+mkdir -p forecasts_Rfdbk/2p8/test
+chmod -R 755 forecasts_Rfdbk
+mkdir -p bc_ic_00
+mkdir -p bc_ic_00/"$YMD""$starthour"'_bcic'
+mkdir -p post_00
+
+# Link grid and physiografic files
+cd bc_ic_00
+ln -fs $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/${GRID}_DOM01.nc .
+ln -fs $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/${GRID}_DOM01.parent.nc .
+ln -fs $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/external_parameter_icon_${GRID}_DOM01_tiles.nc .
+
+%include <tail.h>
+#
+# END OF JOB
+#

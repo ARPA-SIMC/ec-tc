@@ -1,0 +1,68 @@
+%manual
+
+Description:  
+              This task gather ICON-DWD data to be used as initial conditions for NWP-TS
+              It is only active for the first day of the run
+
+Source:
+              task in: /home/itic/nwptsH_ecflow/nwptsICON/ecffiles
+
+
+Mainframe:    atos (family pre, suite nwptsH)
+
+
+For CONSOLE:
+              If task aborts, do not set complete. 
+              Please mail itic.
+
+%end
+
+%include <init_serial.h>
+%include <head.h>
+
+set -x
+set -e
+
+# Root dir for data stored in ecfs
+BASEDIR=%BASEDIR%
+
+# Source of IC: ICON-EU ("e") or ICON-global ("g")
+DWD_DS=%DWD_DS%
+
+###########################################################
+###
+### 0) initialization of soil only on the first day
+###
+
+giorno=`echo $YMD |cut -c 7-8`
+if [ $giorno == "01" ] ; then
+
+  if [ $DWD_DS = "g" ] ; then
+    dwdgridfile=icon_grid_0026_R03B07_G.nc
+    dwddatafile=igfff00000000.${YMD}${starthour}
+  elif [ $DWD_DS = "e" ] ; then
+    dwdgridfile=icon_grid_0027_R03B08_N02.nc
+    dwddatafile=iefff00000000.${YMD}${starthour}.ass
+  fi
+
+# If required files are not in $RESCUE, retrieve them form ecfs (this should be exceptional..)
+# Then links them in working dir
+  mkdir -p ${RUNDIR}/${YMD}${starthour}_icon_dwd
+  cd ${RUNDIR}/${YMD}${starthour}_icon_dwd
+
+  if [ ! -f $RESCUE/icon-lam/ICON-EU-4soil/${dwdgridfile} ] ; then
+    ecp ec:${BASEDIR}/ICON-LAM/ICON-EU-4soil/${dwdgridfile} $RESCUE/icon-lam/ICON-EU-4soil
+  fi
+  ln -sf $RESCUE/icon-lam/ICON-EU-4soil/${dwdgridfile} ./
+
+  if [ ! -f $RESCUE/icon-lam/ICON-EU-4soil/${dwddatafile} ] ; then
+    ecp ec:${BASEDIR}/ICON-LAM/ICON-EU-4soil/${dwddatafile} $RESCUE/icon-lam/ICON-EU-4soil
+  fi
+  ln -sf $RESCUE/icon-lam/ICON-EU-4soil/${dwddatafile} ./iefff00000000.${YMD}${starthour}
+
+fi 
+
+%include <tail.h>
+#
+# END OF JOB
+#

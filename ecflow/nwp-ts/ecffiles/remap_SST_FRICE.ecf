@@ -1,0 +1,217 @@
+%manual
+
+Description:  
+              This task create remapped initial fields for ICON-LAM@coarse resolution
+
+Source:
+              task in  ~itic/nwptsH_ecflow/nwpts-ICON-LAM/nwptsH/nwp_suite_00/model/remap_coarse
+
+
+Mainframe:    ecgate (family model, suite nwptsH)
+
+
+For CONSOLE:
+              If task aborts, do not set complete. 
+              Please mail itic.
+
+%end
+
+%include <init_serial_remap.h>
+%include <head.h>
+%include <ws_EccodesPath_ICON.h>
+
+
+#test -r /etc/ksh.kshrc && . /etc/ksh.kshrc
+set -x
+set -e
+
+#module unload netcdf
+#module load cray-hdf5/1.10.0.1 cray-netcdf/4.4.1.1 eccodes/2.14.0 cray-snplauncher
+module load cdo
+module load nco
+
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+# ICON-NWP grid
+GRID=%GRID%
+
+# ----------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------
+
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+
+# SETTINGS: DIRECTORIES AND INPUT/OUTPUT FILE NAMES --------------------------
+DATABASE_DIR=${RUNDIR}
+
+# directory containing DWD icon tools binaries
+ICONTOOLS_DIR=${EXEC}/icontools
+
+# file name of input grid, for IFS this is the initial data file
+INGRID=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/ifs_oper_T1279_"$YMD""$starthour".grb
+
+# file name of limited-area (output) grid
+LOCALGRID=${DATABASE_DIR}/${GRID}_DOM01.nc
+
+# directory and filename of files to remap
+DATADIR=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'
+
+%nopp
+dateFormatted=$(date -d "${YMD}" +%Y-%m-%d)
+p1YMD=$(date -d "${dateFormatted} +1 day" +%Y%m%d)
+p2YMD=$(date -d "${dateFormatted} +2 day" +%Y%m%d)
+p3YMD=$(date -d "${dateFormatted} +3 day" +%Y%m%d)
+p4YMD=$(date -d "${dateFormatted} +4 day" +%Y%m%d)
+p5YMD=$(date -d "${dateFormatted} +5 day" +%Y%m%d)
+%end
+
+giorno=`echo $YMD |cut -c 7-8`
+if [[ ${giorno} == "31" ]]; then
+   DAYLIST=( "${YMD}" "${p1YMD}" )
+else
+   DAYLIST=( "${YMD}" "${p1YMD}" "${p2YMD}" "${p3YMD}" "${p4YMD}" "${p5YMD}" )
+fi
+   
+# output directory for extracted boundary data
+OUTDIR=${DATABASE_DIR}/Remapped_test_2p8/lbc
+
+
+#BINARY_ICONSUB=iconsub_mpi
+BINARY_REMAP=iconremap
+
+# grid file defining the lateral boundary
+AUXGRID="lateral_boundary"
+
+intp_method=3
+#-----------------------------------------------------------------------------
+# PART I: Extract boundary data SST
+#-----------------------------------------------------------------------------
+cd $OUTDIR
+YMDH=${YMD}${starthour}
+rm -f ncstorage.tmp_SST_${YMDH}*
+rm -f ${OUTDIR}/SST_refresh.${YMD}.nc
+
+#set +x
+cat > NAMELIST_ICONREMAP_FIELDS_SST_$YMDH << EOF
+!
+&input_field_nml  ! vertical velocity
+ inputname      = "SST"
+ outputname     = "SST"
+ intp_method = $intp_method
+/
+EOF
+set -x
+
+for day in "${DAYLIST[@]}" ; do
+    datafile="ifs_oper_T1279_"${day}${starthour}".grb"       #filename without path
+%nopp
+    outdatafile=${datafile%%.*}      # get filename without suffix
+%end
+
+cat > NAMELIST_ICONREMAP_SST_$YMDH << EOF_2
+&remap_nml
+ in_grid_filename  = '${INGRID}'
+ in_filename       = '${DATADIR}/${datafile}'
+ in_type           = 1
+ out_grid_filename = '${LOCALGRID}'
+ out_filename      = '${OUTDIR}/${outdatafile}_SST.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage_tmp_SST_${YMDH}"
+/
+EOF_2
+#        time aprun -n $EC_total_tasks ${ICONTOOLS_DIR}/${BINARY_REMAP} -q   \
+#            --remap_nml NAMELIST_ICONREMAP_SST_$YMDH                      \
+#            --input_field_nml NAMELIST_ICONREMAP_FIELDS_SST_$YMDH
+         ${ICONTOOLS_DIR}/${BINARY_REMAP} -q   \
+            --remap_nml NAMELIST_ICONREMAP_SST_$YMDH                      \
+            --input_field_nml NAMELIST_ICONREMAP_FIELDS_SST_$YMDH
+        cdo cat ${OUTDIR}/${outdatafile}_SST.nc ${OUTDIR}/SST_refresh.${YMD}.nc
+        #rm -rf ${OUTDIR}/${outdatafile}_SST.nc
+done
+
+cdo settunits,seconds ${OUTDIR}/SST_refresh.${YMD}.nc ${OUTDIR}/SST_refresh_tmp.nc
+mv ${OUTDIR}/SST_refresh_tmp.nc ${OUTDIR}/SST_refresh.${YMD}.nc
+
+#-----------------------------------------------------------------------------
+# PART II: Extract boundary data FR_ICE
+#-----------------------------------------------------------------------------
+
+rm -f ncstorage.tmp_FRICE_${YMDH}*
+rm -f ${OUTDIR}/SIC_refresh.${YMD}.nc
+
+#set +x
+cat > NAMELIST_ICONREMAP_FIELDS_FRICE_$YMDH << EOF_A
+!
+&input_field_nml  ! vertical velocity
+ inputname      = "ci"
+ outputname     = "FR_ICE"
+ intp_method = $intp_method
+/
+EOF_A
+set -x
+
+for day in "${DAYLIST[@]}" ; do
+    datafile="ifs_oper_T1279_"${day}${starthour}".grb"       #filename without path
+%nopp
+    outdatafile=${datafile%%.*}      # get filename without suffix
+%end
+
+cat > NAMELIST_ICONREMAP_FRICE_$YMDH << EOF_2A
+&remap_nml
+ in_grid_filename  = '${INGRID}'
+ in_filename       = '${DATADIR}/${datafile}'
+ in_type           = 1
+ out_grid_filename = '${LOCALGRID}'
+ out_filename      = '${OUTDIR}/${outdatafile}_FRICE.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage_tmp_FRICE_${YMDH}"
+/
+EOF_2A
+
+#        time aprun -n $EC_total_tasks ${ICONTOOLS_DIR}/${BINARY_REMAP} -q   \
+#            --remap_nml NAMELIST_ICONREMAP_FRICE_$YMDH                      \
+#            --input_field_nml NAMELIST_ICONREMAP_FIELDS_FRICE_$YMDH
+         ${ICONTOOLS_DIR}/${BINARY_REMAP} -q   \
+            --remap_nml NAMELIST_ICONREMAP_FRICE_$YMDH                      \
+            --input_field_nml NAMELIST_ICONREMAP_FIELDS_FRICE_$YMDH
+        cdo setname,SIC ${OUTDIR}/${outdatafile}_FRICE.nc ${OUTDIR}/${outdatafile}_SIC.nc
+        cdo cat ${OUTDIR}/${outdatafile}_SIC.nc ${OUTDIR}/SIC_refresh.${YMD}.nc
+        #rm -rf ${OUTDIR}/${outdatafile}_FRICE.nc
+done
+
+cdo settunits,seconds ${OUTDIR}/SIC_refresh.${YMD}.nc ${OUTDIR}/SIC_refresh_tmp.nc
+mv ${OUTDIR}/SIC_refresh_tmp.nc ${OUTDIR}/SIC_refresh.${YMD}.nc
+
+#-----------------------------------------------------------------------------
+# append data
+cp ${OUTDIR}/SST_refresh.${YMD}.nc ${OUTDIR}/SST_SIC_refresh.${YMD}.nc
+ncks -A ${OUTDIR}/SIC_refresh.${YMD}.nc ${OUTDIR}/SST_SIC_refresh.${YMD}.nc
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# clean-up
+
+rm -f ncstorage_tmp_SST_${YMDH}*  ncstorage_tmp_FRICE_${YMDH}*
+#rm -f nml.log  
+rm -f  NAMELIST_ICONREMAP_FRICE_${YMDH}* NAMELIST_ICONREMAP_FIELDS_FRICE_${YMDH}*
+rm -f  NAMELIST_ICONREMAP_SST_${YMDH}* NAMELIST_ICONREMAP_FIELDS_SST_${YMDH}*
+rm -f *FRICE*
+
+#-----------------------------------------------------------------------------
+
+
+
+
+%include <tail.h>
+#
+# END OF JOB
+#

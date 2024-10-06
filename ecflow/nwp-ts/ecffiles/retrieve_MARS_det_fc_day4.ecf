@@ -1,0 +1,155 @@
+%manual
+
+Description:  
+              This task retrieves the boundary conditions 
+              from the high-res deterministic run for the LM_det run.
+
+Source:
+              task in  $HOME/nwptsH
+
+
+Mainframe:    ecgate (nwptsH/get_bc_ic/get_bc_XXX, suite cleps_timecrit)
+
+
+For CONSOLE:
+    	      If this task fails, do not set complete.
+              Something went wrong during MARS retrieval of the fields
+              produced by the high-res ECMWF deterministic run.
+              This requires analyst support.
+              It is possible that this task started when the fields on
+              model levels have not yet been generated, or 
+              (WORSE than everything) have already been deleted from FDB.
+              Please inform user itm.
+
+%end
+
+#!/bin/ksh
+%include <init_serial.h>
+%include <head.h>
+
+set -x
+############################# 
+hour=$starthour
+anno=`echo $YMD |cut -c 1-4`
+mese=`echo $YMD |cut -c 5-6`
+NLEVDET=%NLEVDET%
+area=%DET_AREA%
+grid=%DET_GRID%
+BASEDIR=%BASEDIR%
+MARS_MULTITARGET_STRICT_FORMAT=1
+extract_day=%EXTRACT_DAY%
+res=1279
+#################################################
+################ variables for loop ####################################
+# MAYBE:                                                               #
+# do NOT retrieve all ML, but only from 20 to $NLEVDET, since levels   #
+# 1-20 are outside COSMO domain!                                       #
+#                                                                      #
+#mysteps=$firststep/to/$laststep/by/${hincbd_ec}  ### <------          #
+mylevels=1/TO/$NLEVDET                                                 #
+########################################################################
+
+set -e
+cd  $RUNDIR/"$YMD""$starthour"'_bcic'
+
+
+###########################################
+### 1) get all fields at all times
+###    from MARS 
+###########################################
+#To extract short cutoff analysis
+#for mytime in 00 06 12 18
+#do
+#  mystep=3
+#  myhour_tmp=$((mytime+mystep))
+#%nopp
+#    myhour=$(printf "%02d"  myhour_tmp)
+#%end
+#  if [[ ${mytime} == 00 ]] || [[ ${mytime} == 12 ]]; then
+#     stream=OPER
+#  else
+#     stream=SCDA #short cutoff
+#  fi
+
+###
+###  0.0 ) Checks to reuse the same script for different extraction days
+###
+
+%nopp
+dateFormatted=$(date -d "${YMD}" +%Y-%m-%d)
+if [ ${extract_day} == 0 ] ; then
+   pYMD=$YMD
+else
+   pYMD=$(date -d "${dateFormatted} +${extract_day} day" +%Y%m%d)
+fi
+%end
+
+###
+###  1.0 ) Extract IFS forecasts at 03,09,15,21 to fill the gaps between analyses
+###
+
+for mytime in 00 12
+do
+  for mystep in 3 9
+  do
+    myhour_tmp=$((mytime+mystep))
+%nopp
+    myhour=$(printf "%02d"  myhour_tmp)
+%end
+    day=${pYMD}${myhour}
+
+###
+### 1.1) test is IFS files do already exist on ecfs and
+###    in this case, copy them from there
+###
+    
+    ecp  ec:${BASEDIR}/ICON-LAM/IC_BC/${anno}${mese}/ifs_oper_T${res}_${day}.grb . \
+       2> /dev/null && status=0 || status=1 
+    if [ $status == 1 ]; then 
+
+    echo "Get IFS forecast data: " $day
+    cat > forec_file_${day} << EOF
+# MARS request for ifs2icon
+retrieve,
+        padding  = 0,
+        accuracy = 16,
+        class=od, expver=1, stream=oper,
+        domain   = g,
+        type     = fc,
+        date     = ${pYMD},
+        time     = ${mytime},
+        step     = ${mystep},
+        target   = "ifs_oper_T${res}_${pYMD}${mytime}_for${mystep}.grb",
+        param    = u/v/w/t/q/clwc/ciwc/crwc/cswc,
+        repres   = gg,
+        resol    = auto,
+        grid     = ${grid},
+        area     = ${area},                #54/3/24.5/46.5, # previously: 51/9/25/40,
+        levtype  = ml,                                  # model levels,
+        levelist = ${mylevels}
+retrieve,
+        #param    = lnsp/z,
+        param    = lnsp,
+        levelist = 1
+retrieve,
+        param    = sst/src/z,
+        repres   = gg,
+        resol    = off,
+        levtype  = surface
+EOF
+
+     /usr/local/bin/mars forec_file_${day}
+
+     echo "Convert on the same grid"
+     grib_set -slongitudeOfFirstGridPointInDegrees=347.5 ifs_oper_T${res}_${pYMD}${mytime}_for${mystep}.grb tmp_storage_${pYMD}${mytime}_for${mystep}.grb
+     mv tmp_storage_${pYMD}${mytime}_for${mystep}.grb ifs_oper_T${res}_${pYMD}${mytime}_for${mystep}.grb
+     ln -sf ifs_oper_T${res}_${pYMD}${mytime}_for${mystep}.grb ifs_oper_T${res}_${day}.grb
+     ecp ifs_oper_T${res}_${day}.grb ec:${BASEDIR}/ICON-LAM/IC_BC/${anno}${mese}/.
+    fi
+  done
+done
+
+%include <tail.h>
+#
+# END OF JOB
+#

@@ -1,0 +1,120 @@
+%manual
+
+Description:  
+              This task retrieves the boundary conditions 
+              from the high-resolution IFS analysis
+
+Source:
+              task in  $HOME/nwptsH
+
+
+Mainframe:    ecgate (nwptsH/nwp_suite_00/get_bc_ic, suite nwptsH)
+
+
+For CONSOLE:
+    	      If this task fails, do not set complete.
+              Something went wrong during MARS retrieval of the fields
+              produced by the high-res ECMWF deterministic run.
+              This requires analyst support.
+
+%end
+
+#!/bin/ksh
+%include <init_serial.h>
+%include <head.h>
+
+set -x
+############################# 
+date=$YMD
+hour=$starthour
+mytime=$starthour
+anno=`echo $YMD |cut -c 1-4`
+mese=`echo $YMD |cut -c 5-6`
+giorno=`echo $YMD |cut -c 7-8`
+NLEVDET=%NLEVDET%
+EXPID=%ML_EXPID%
+area=%DET_AREA%
+grid=%DET_GRID%
+BASEDIR=%BASEDIR%
+EXEC=%EXEC%
+extract_day=%EXTRACT_DAY%
+res=1279
+
+###
+###  0.0 ) Checks to reuse the same script for different extraction days
+###
+
+if [[ ${giorno} == "31" && ${extract_day} != 0 ]]; then
+   echo "No need to extract the timeranges beloging to the next month"
+else
+
+%nopp
+dateFormatted=$(date -d "${YMD}" +%Y-%m-%d)
+if [ ${extract_day} == 0 ] ; then 
+   pYMD=$YMD
+else
+   pYMD=$(date -d "${dateFormatted} +${extract_day} day" +%Y%m%d)
+fi
+#pYMD is the day to actually extract
+
+if [ ${extract_day} != 4 ] ; then 
+   if [[ ${giorno} == "31" && ${extract_day} == 0 ]]; then
+      ppYMD=$(date -d "${dateFormatted} +1 day" +%Y%m%d)
+      list="${pYMD}00 ${pYMD}06 ${pYMD}12 ${pYMD}18 ${ppYMD}00"
+   else
+      list="${pYMD}00 ${pYMD}06 ${pYMD}12 ${pYMD}18 "
+   fi
+else
+   ppYMD=$(date -d "${dateFormatted} +5 day" +%Y%m%d)
+   list="${pYMD}00 ${pYMD}06 ${pYMD}12 ${pYMD}18 ${ppYMD}00"
+fi
+%end
+
+###
+### 0.1) Prepare directory and script
+###
+
+cd  $RUNDIR/"$YMD""$starthour"'_bcic'
+cp ${EXEC}/mars4icon_smi_analysis .
+chmod ug+x mars4icon_smi_analysis
+
+###
+### 1.0) Extract IFS analysis every six hours
+###
+
+for day in ${list[@]}
+do
+
+###
+### 1.1) test is IFS files do already exist on ecfs and
+###    in this case, copy them from there
+###
+
+    ecp  ec:${BASEDIR}/ICON-LAM/IC_BC/${anno}${mese}/ifs_oper_T${res}_${day}.grb . \
+       2> /dev/null && status=0 || status=1 
+    if [ $status == 1 ]; then 
+        echo "Extraction of:" $day
+        ./mars4icon_smi_analysis -a ${area} -d ${day}  -o ./ifs_oper_T${res}_${day}_fromMars.grb  -r ${res} -s 0  -S oper +O -C od -D -l 1/to/${NLEVDET} -L ${NLEVDET} -g ${grid}
+
+###
+### 1.2) fix grid in all grib fields (for some reason surface fiels
+###      have longitudeOfFirstGridPointInDegrees=0+12.5, while model level
+###      fields have it =360-12.5
+###
+        echo "Convert on the same grid"
+        grib_set -slongitudeOfFirstGridPointInDegrees=347.5 ./ifs_oper_T${res}_${day}_fromMars.grb ./ifs_oper_T${res}_${day}.grb
+        rm -f ./ifs_oper_T${res}_${day}_fromMars.grb*
+
+###
+### 1.3) copy on ecfs
+###
+        ecp ./ifs_oper_T${res}_${day}.grb ec:${BASEDIR}/ICON-LAM/IC_BC/${anno}${mese}/.
+    fi
+done
+
+fi ##concluding check for day 30th
+
+%include <tail.h>
+#
+# END OF JOB
+#

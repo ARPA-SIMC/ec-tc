@@ -1,12 +1,13 @@
 # ec-tc
-Ecflow scripts for a time critical suite on ECMWF HPC systems.
+Ecflow scripts for suites on ECMWF HPC systems.
 
-This repository contains the software for the new ICON-LEPS
-time-critical EcFlow suite at ECMWF, it includes the python script for
-defining the suite, a part of the suite jobs and configuration files
-for suite definition and suite runtime.
+This repository presently contains the software for two independent EcFlow suites:
+- the new ICON-LEPS time-critical suite (ileps)
+- the Icon offline test suite (nwp-ts)
+It includes the python scripts for defining the suite, a part of the suite jobs and
+configuration files for suite definition and suite runtime.
 
-At the moment the suite can already run all the jobs from the
+At the moment, the ileps suite can already run all the jobs from the
 beginning up to ICON LEPS ensemble run, including data retireval and
 cluster analysis.
 
