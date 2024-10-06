@@ -35,8 +35,12 @@ fi
 
 if [ $TIME = "0000" ] ; then
   export MODEL_STOP=$MODEL_STOP_00
+elif [ $TIME = "0600" ] ; then
+  export MODEL_STOP=$MODEL_STOP_06
 elif [ $TIME = "1200" ] ; then
   export MODEL_STOP=$MODEL_STOP_12
+elif [ $TIME = "1800" ] ; then
+  export MODEL_STOP=$MODEL_STOP_18
 fi
 
 # Analysis and BC+0
