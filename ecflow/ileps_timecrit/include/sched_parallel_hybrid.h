@@ -1,4 +1,4 @@
-#SBATCH --qos=tp
+#SBATCH --qos=np
 #SBATCH --time=01:00:00
 #SBATCH --mem-bind=local
 #SBATCH --nodes=3
@@ -8,4 +8,4 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --ntasks-per-core=2
 
-export OMP_NUM_THREADS=32
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
