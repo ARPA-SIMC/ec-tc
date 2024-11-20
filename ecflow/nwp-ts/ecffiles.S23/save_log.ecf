@@ -102,10 +102,10 @@ tar_file=${label}_${YMD}_log.tar.gz
 tar -czf $tar_file $files
 
 # Save to ecfs
-ecf_dir=ec:/mck/NWP-TS/${label}/${YM}
-emkdir -p $ecf_dir
-echmod 755 ec:mck/NWP-TS/${label}
-echmod 755 ec:mck/NWP-TS/${label}/${YM}
+ecf_root=ec:/mck/nwp-ts/out/${label}
+emkdir -p ${ecf_root}/${YM}
+echmod 755 ${ecf_root}
+echmod 755 ${ecf_root}/${YM}
 
 # Save to ecfs
 # ecf_dir=ec:${BASEDIR}/${label}/${YM}
@@ -113,8 +113,8 @@ echmod 755 ec:mck/NWP-TS/${label}/${YM}
 # echmod 755 ec:${BASEDIR}/${label}
 # echmod 755 ec:${BASEDIR}/${label}/${YM}
 
-ecp $tar_file $ecf_dir
-echmod 644 ${ecf_dir}/${tar_file}
+ecp $tar_file ${ecf_root}/${YM}
+echmod 644 ${ecf_root}/${YM}/${tar_file}
 
 %include <tail.h>
 #

@@ -1,0 +1,121 @@
+#!/bin/bash
+%include <init_serial_slow.h>
+%include <eccodes-2.35.h>
+%include <head.h>
+%include <ecflow.h>
+%include <gen_proc_info.h>
+
+echo "Hello world"
+
+# Experiment identifier: is the suffix for files archived in ECFS
+label=$VERSION 
+
+# Suite path (hardcoded in nwptshICON.def and exported by init_serial.h)
+# RUNDIR=/ec/res4/scratch/mck/nwptsH/%VERSION%/bc_ic_00
+# DOPOCORSA=/ec/res4/scratch/mck/nwptsH/%VERSION%/post_00
+#
+# Archive path in ECFS (hardcoded in the task definition in nwptshICON.def) 
+# BASEDIR=/mck/nwp-ts/
+
+cd $DOPOCORSA
+
+# Build grib filter
+# Note: the original script included also the instruction: "set setLocalDefinition = 1"
+# Apparently, this has no effect on grib files (it may be a remnant of old grib1 outputs)
+
+rm -f its.filt
+cat << EOF > its.filt
+set centre = $GRIB_API_CENTRE;
+set generatingProcessIdentifier = $GEN_PROC_ID;
+if (shortName is "QC" || shortName is "QI" || shortName is "QR" || shortName is "QS" ||
+    typeOfLevel is "generalVertical" || typeOfLevel is "depthBelowLandLayer" || typeOfLevel is "depthBelowLand") {
+  append "extra.grb";
+}
+else
+{
+  append "basic.grb";
+}
+EOF
+
+# Tranche of the run being processed
+YM=${YMD:0:6}
+DD=${YMD:6:2}
+
+# *** TEMPORARY *** Find the names of input and output directories  
+input_dir=${RUNDIR}/${YMD}00
+ecf_dir=ec:${BASEDIR}/out/${label}/${YM}
+emkdir -p $ecf_dir
+echmod 755 ec:${BASEDIR}/out/${label}
+echmod 755 ec:${BASEDIR}/out/${label}/${YM}
+
+# If this is the first tranche, copy to ECFS the constant fields
+if [ $DD = "01" ] ; then
+  cfile_in="${label}_00000000c.grb"
+  cfile_out="ITS_"${label}"_constant.grb"
+  ls -l ${input_dir}/${cfile_in}
+  ecp -o ${input_dir}/${cfile_in} ${ecf_dir}/${cfile_out}
+  echmod 644 ${ecf_dir}/${cfile_out}
+fi
+
+# Main loop (forecast days)
+if [ $DD = "31" ] ; then
+  day_list="0"
+else
+  day_list="0 1 2 3 4"
+fi
+for day in $day_list ; do
+
+# Find the names of input files
+# If processing the first day of the month, also process the initial conditions
+  cal_day=$(($DD+$day))
+  cal_daym1=$(($cal_day-1))
+  tr_day1=$(printf %%02g $cal_daym1)
+  tr_day2=$(printf %%02g $cal_day)
+  calendar_date=$(date -d "${YMD} + ${day}day" +%%Y%%m%%d)
+
+  if [ $DD = "01" -a $day -eq 0 ] ; then
+    file_list_str="${input_dir}/${label}_str_plev_00000000.grb ${input_dir}/${label}_str_surf_00000000.grb"
+    file_list="${input_dir}/${label}_00000000.grb"
+  else
+    file_list_str=""
+    file_list=""
+  fi
+
+  for tr_hh in $(seq -f "%%02g" 23) ; do
+    file_list_str=${file_list_str}" ${input_dir}/${label}_str_plev_${tr_day1}${tr_hh}0000.grb ${input_dir}/${label}_str_surf_${tr_day1}${tr_hh}0000.grb "
+    file_list=${file_list}" ${input_dir}/${label}_${tr_day1}${tr_hh}0000.grb"
+  done
+  file_list_str=${file_list_str}" ${input_dir}/${label}_str_plev_${tr_day2}000000.grb ${input_dir}/${label}_str_surf_${tr_day2}000000.grb"
+  file_list=${file_list}" ${input_dir}/${label}_${tr_day2}000000.grb"
+
+# Check if all input files are available
+  cd $input_dir
+  ls $file_list 2> /dev/null && status=0 || status=1
+  if [ $status = 1 ] ; then
+    echo "Input files incomplete for day ${day}, do not write on ecfs "
+%include <tail.h>
+  fi
+  cd $DOPOCORSA
+
+# Process input files
+  nok=0
+  rm -f basic.grb extra.grb
+  for file in $file_list ; do
+    grib_filter its.filt $file
+  done
+
+  ecp -o basic.grb ${ecf_dir}/ITS_${label}_${calendar_date}_basic.grb 
+  echmod 644 ${ecf_dir}/ITS_${label}_${calendar_date}_basic.grb
+  ecp -o extra.grb ${ecf_dir}/ITS_${label}_${calendar_date}_extra.grb 
+  echmod 644 ${ecf_dir}/ITS_${label}_${calendar_date}_extra.grb
+
+  tar_file=ITS_${label}_${calendar_date}_str.tar
+  tar -cf $tar_file $file_list_str
+  ecp -o $tar_file ${ecf_dir} 
+
+done
+
+%include <tail.h>
+#
+# END OF JOB
+#

@@ -1,0 +1,134 @@
+#!/bin/bash
+%include <init_serial_fast.h>
+%include <eccodes-2.35.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+# Source of IC: ICON-EU ("e") or ICON-global ("g")
+DWD_DS=%DWD_DS%
+
+# global timing
+day=`echo $YMD |cut -c 7-8`
+
+# if on the date (it performs remap only the first month day)
+if [[ ${day} == "01" ]] ; then
+
+# ----------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------
+
+# SETTINGS: DIRECTORIES AND INPUT/OUTPUT FILE NAMES --------------------------
+DATABASE_DIR=${RUNDIR}
+
+# directory containing DWD icon tools binaries
+ICONTOOLS_DIR=${EXEC}/icontools
+
+# file names of input grid and input data (form DWD, either global or EU)
+if [ $DWD_DS = "g" ] ; then
+  dwdgridfile=icon_grid_0026_R03B07_G.nc
+  dwddatafile=igfff00000000.${YMD}${starthour}
+elif [ $DWD_DS = "e" ] ; then
+  dwdgridfile=icon_grid_0027_R03B08_N02.nc
+  dwddatafile=iefff00000000.${YMD}${starthour}
+fi
+INGRID=${DATABASE_DIR}/${YMD}${starthour}_icon_dwd/${dwdgridfile}
+DATAFILELIST=${DATABASE_DIR}/${YMD}${starthour}_icon_dwd/${dwddatafile}
+
+# file name of limited-area (output) grid
+LOCALGRID=${DATABASE_DIR}/${GRID}_DOM01.nc
+
+# output directory for extracted boundary data
+OUTDIR=${DATABASE_DIR}/Remapped_ICON-EU
+
+BINARY_ICONSUB=iconsub
+BINARY_REMAP=iconremap
+AUXGRID=auxgrid
+
+#-----------------------------------------------------------------------------
+# Remap inital data onto local (limited-area) grid
+#-----------------------------------------------------------------------------
+
+mkdir -p ${OUTDIR}
+cd ${OUTDIR}
+rm -f ncstorage.tmp* NAMELIST_ICONREMAP_FIELDS NAMELIST_SUB NAMELIST_ICONREMAP nml.log
+
+intp_method=3
+#set +x
+
+# NOTE: soil moisture is converted directly. To avoid unecessary artefacts 
+# it is suggested to remap the soil moisture index (SMI) and then transfer 
+# it back to W_SO. However, SMI is not yet available as an output variable from ICON. 
+for field in T_G T_ICE H_ICE ALB_SEAICE QV_S FR_ICE W_I HSNOW_MAX SNOAG T_SO SMI EVAP_PL T_SNOW W_SNOW RHO_SNOW H_SNOW FRESHSNW Z0 P ; do
+cat >> NAMELIST_ICONREMAP_FIELDS << EOF1
+&input_field_nml
+ inputname      = "${field}"         
+ outputname     = "${field}"          
+ intp_method    = ${intp_method}
+/
+EOF1
+done
+
+set -x
+cat NAMELIST_ICONREMAP_FIELDS
+
+#-----------------------------------------------------------------------------
+# loop over file list:
+
+echo ${DATAFILELIST}
+for datafilename in ${DATAFILELIST} ; do
+
+datafile="${datafilename##*/}"  # get filename without path
+%nopp
+outdatafile=${datafile%.*}      # get filename without suffix
+%end
+
+cat > NAMELIST_ICONREMAP << EOF2
+&remap_nml
+ in_grid_filename  = '${INGRID}'
+ in_filename       = '${DATAFILELIST}'
+ in_type           = 2
+ out_grid_filename = '${LOCALGRID}'
+ out_filename      = '${OUTDIR}/${outdatafile}.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage.tmp"
+/
+EOF2
+
+###time aprun  -n 24 -N 6 -j 1 -d 4 -m 8g  ${ICONTOOLS_DIR}/${BINARY_REMAP} -q \
+#time aprun  -ss -N $EC_tasks_per_node  -n $EC_total_tasks  -d $EC_threads_per_task  -j $EC_hyperthreads \
+#             ${ICONTOOLS_DIR}/${BINARY_REMAP} -q                    \
+#            --remap_nml NAMELIST_ICONREMAP                          \
+#            --input_field_nml NAMELIST_ICONREMAP_FIELDS 2>&1
+             
+${ICONTOOLS_DIR}/${BINARY_REMAP} -v                    \
+            --remap_nml NAMELIST_ICONREMAP                          \
+            --input_field_nml NAMELIST_ICONREMAP_FIELDS
+
+###Check if data have been indeed created
+if [ ! -f ${OUTDIR}/${outdatafile}.nc ] ; then
+      ecflow_client --abort="${OUTDIR}/${outdatafile}.nc"
+      exit 0
+fi
+
+done
+
+#-----------------------------------------------------------------------------
+
+fi ## Close if on the date (it performs remaps only the first month day)
+date
+
+
+%include <tail.h>
+#
+# END OF JOB
+#

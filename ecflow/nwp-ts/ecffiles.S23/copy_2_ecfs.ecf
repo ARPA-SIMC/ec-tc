@@ -23,15 +23,15 @@ export DWDPERM=/perm/dwg/
 export ECCODES_DEFINITION_PATH=${DWDPERM}/grib_api_def/ec-2.23.0/definitions.edzw:${DWDPERM}/grib_api_def/ec-2.23.0/definitions
 export ECCODES_SAMPLES_PATH=${DWDPERM}/grib_api_def/ec-2.23.0/samples-19.1
 
-# Suffix for files archived in ECFS
+# Experiment identifier: is the suffix for files archived in ECFS
 label=$VERSION 
 
 # Suite path (hardcoded in nwptshICON.def and exported by init_serial.h)
-# RUNDIR=/ec/res4/scratch/itic/nwptsH/%VERSION%/bc_ic_00
-# DOPOCORSA=/ec/res4/scratch/itic/nwptsH/%VERSION%/post_00
+# RUNDIR=/ec/res4/scratch/mck/nwptsH/%VERSION%/bc_ic_00
+# DOPOCORSA=/ec/res4/scratch/mck/nwptsH/%VERSION%/post_00
 #
 # Archive path in ECFS (hardcoded in the task definition in nwptshICON.def) 
-# BASEDIR=/itic/nwp_suite_HindcastMode/
+# BASEDIR=/mck/nwp-ts/
 
 BASEDIR=%BASEDIR%
 cd $DOPOCORSA
@@ -60,21 +60,14 @@ DD=${YMD:6:2}
 
 # *** TEMPORARY *** Find the names of input and output directories  
 input_dir=${RUNDIR}/${YMD}00_test_2p8
-ecf_dir=ec:/mck/NWP-TS/${label}/${YM}
+ecf_dir=ec:${BASEDIR}/out/${label}/${YM}
 emkdir -p $ecf_dir
-echmod 755 ec:/mck/NWP-TS/${label}
-echmod 755 ec:/mck/NWP-TS/${label}/${YM}
-
-# Find the names of input and output directories  
-# input_dir=${RUNDIR}/${YMD}00_test_2p8
-# ecf_dir=ec:${BASEDIR}/${label}/${YM}
-# emkdir -p $ecf_dir
-# echmod 755 ec:${BASEDIR}/${label}
-# echmod 755 ec:${BASEDIR}/${label}/${YM}
+echmod 755 ec:${BASEDIR}/out/${label}
+echmod 755 ec:${BASEDIR}/out/${label}/${YM}
 
 # If this is the first tranche, copy to ECFS the constant fields
 if [ $DD = "01" ] ; then
-  cfile_in="ICON-LAM_Testsuite_00000000c.grb"
+  cfile_in="${label}_00000000c.grb"
   cfile_out="ITS_"${label}"_constant.grb"
   ls -l ${input_dir}/${cfile_in}
   ecp -o ${input_dir}/${cfile_in} ${ecf_dir}/${cfile_out}
@@ -98,28 +91,44 @@ for day in $day_list ; do
   calendar_date=$(date -d "${YMD} + ${day}day" +%%Y%%m%%d)
 
   if [ $DD = "01" -a $day -eq 0 ] ; then
-    file_list="ICON-LAM_Testsuite_00000000.grb"
+    file_list_str="${input_dir}/${label}_str_plev_00000000.grb ${input_dir}/${label}_str_surf_00000000.grb"
+    file_list="${input_dir}/${label}_00000000.grb"
   else
+    file_list_str=""
     file_list=""
   fi
 
   for tr_hh in $(seq -f "%%02g" 23) ; do 
-    file_list=${file_list}" ICON-LAM_Testsuite_${tr_day1}${tr_hh}0000.grb"
+    file_list_str=${file_list_str}" ${input_dir}/${label}_str_plev_${tr_day1}${tr_hh}0000.grb ${input_dir}/${label}_str_surf_${tr_day1}${tr_hh}0000.grb "
+    file_list=${file_list}" ${input_dir}/${label}_${tr_day1}${tr_hh}0000.grb"
   done
-  file_list=${file_list}" ICON-LAM_Testsuite_${tr_day2}000000.grb"
+  file_list_str=${file_list_str}" ${input_dir}/${label}_str_plev_${tr_day2}000000.grb ${input_dir}/${label}_str_surf_${tr_day2}000000.grb"
+  file_list=${file_list}" ${input_dir}/${label}_${tr_day2}000000.grb"
+
+# Check if all input files are available
+  cd $input_dir
+  ls $file_list 2> /dev/null && status=0 || status=1
+  if [ $status = 1 ] ; then
+    echo "Input files incomplete for day ${day}, do not write on ecfs "
+%include <tail.h>
+  fi
+  cd $DOPOCORSA
 
 # Process input files
+  nok=0
   rm -f basic.grb extra.grb
   for file in $file_list ; do
-    ls -l ${input_dir}/$file
-    grib_filter its.filt ${input_dir}/$file
+    grib_filter its.filt $file
   done
 
-# Copy to ECFS
   ecp -o basic.grb ${ecf_dir}/ITS_${label}_${calendar_date}_basic.grb 
   echmod 644 ${ecf_dir}/ITS_${label}_${calendar_date}_basic.grb
   ecp -o extra.grb ${ecf_dir}/ITS_${label}_${calendar_date}_extra.grb 
   echmod 644 ${ecf_dir}/ITS_${label}_${calendar_date}_extra.grb
+
+  tar_file=ITS_${label}_${calendar_date}_str.tar
+  tar -cf $tar_file $file_list_str
+  ecp -o $tar_file ${ecf_dir} 
 
 done
 

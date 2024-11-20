@@ -1,0 +1,96 @@
+#!/bin/bash
+%include <init_serial_slow.h>
+%include <eccodes-2.35.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+
+#-------------------------------------------------------------------------
+# 1) Set the environment
+
+hour=$starthour
+anno=`echo $YMD |cut -c 1-4`
+mese=`echo $YMD |cut -c 5-6`
+giorno=`echo $YMD |cut -c 7-8`
+nlevdet=%NLEVDET%
+area=%DET_AREA%
+grid=%DET_GRID%
+res=1279
+extract_day=%EXTRACT_DAY%
+run_len=%RUN_LEN%
+
+exec=%EXEC%
+
+# Last forecast step of the overall run, relative to 00 of the current day (hours)
+fcsteps_req=$(($run_len-($giorno+$extract_day-1)*24))
+
+# - If the duration of the overall run is not a multiple of 24, the analysis at 00
+#  of next day is needed for time interpolation of SST/FRICE (it is processed by the
+#  instance of this script of the following day)
+# - If this is the last day of a segment, the final time (24Z) must also be extracted
+#   (this timestamp will be re-extracted by next run segment..)
+if [ $fcsteps_req -le -24 ] ; then
+  echo "No need to extract analysis for day "$(($giorno+$extract_day))
+
+else
+# Day to actually extract
+  rtYMD=$(date -d "${YMD} +${extract_day} day" +%%Y%%m%%d)
+  rtYMDp1=$(date -d "${rtYMD} +1 day" +%%Y%%m%%d)
+
+  if [ $fcsteps_req -ge 18 ] ; then
+    if [ $extract_day -eq 4 ] ; then
+      rt_list="${rtYMD}00 ${rtYMD}06 ${rtYMD}12 ${rtYMD}18 ${rtYMDp1}00"
+    else
+      rt_list="${rtYMD}00 ${rtYMD}06 ${rtYMD}12 ${rtYMD}18"
+    fi
+  elif [ $fcsteps_req -ge 12 ] ; then
+    rt_list="${rtYMD}00 ${rtYMD}06 ${rtYMD}12"
+  elif [ $fcsteps_req -ge 6 ] ; then
+    rt_list="${rtYMD}00 ${rtYMD}06"
+  elif [ $fcsteps_req -gt -24 ] ; then
+    rt_list="${rtYMD}00"
+  fi
+    
+# Path
+  out_dir=${RUNDIR}/${YMD}${starthour}_bcic
+  work_dir=${RUNDIR}/${YMD}${starthour}_bcic/d${extract_day}_an
+  mkdir -p $work_dir
+  cd $work_dir
+  cp ${exec}/mars4icon_smi_analysis .
+  chmod ug+x mars4icon_smi_analysis
+
+#-------------------------------------------------------------------------
+# 2) Extract IFS analysis every six hours
+
+  for rt in ${rt_list[@]}; do
+
+# 2.1) Check if IFS have already been extcted (search in working dir, then in ECFS)
+# Patch (Oct 2024)
+# In MARS data, surface fiels have longitudeOfFirstGridPointInDegrees=-12.5, 
+# while model level fields have it =347.5 (360-12.5): grib header must be corrected. 
+
+    if [ ! -s ${out_dir}/ifs_oper_T${res}_${rt}.grb ] ; then
+      ecp ec:${BASEDIR}/ic_bc/${anno}${mese}/ifs_oper_T${res}_${rt}.grb $out_dir \
+        2> /dev/null && status=0 || status=1 
+      if [ $status = 1 ]; then 
+
+#       Data must be extracted from MARS
+        echo "Extraction of:" $rt
+        ./mars4icon_smi_analysis -a ${area} -d ${rt} -o ./ifs_oper_T${res}_${rt}_fromMars.grb -r ${res} -s 0 -S oper +O -C od -D -l 1/to/${nlevdet} -L ${nlevdet} -g ${grid}
+
+#       Patch (Oct 2024)
+        echo "Convert on the same grid"
+        grib_set -s longitudeOfFirstGridPointInDegrees=347.5 ./ifs_oper_T${res}_${rt}_fromMars.grb ./ifs_oper_T${res}_${rt}.grb
+        mv ifs_oper_T${res}_${rt}.grb $out_dir
+	rm -f ./ifs_oper_T${res}_${rt}_fromMars.grb*
+
+#       Save on ECFS
+        ecp ${out_dir}/ifs_oper_T${res}_${rt}.grb ec:${BASEDIR}/ic_bc/${anno}${mese}/
+      fi
+    fi
+  done
+
+fi
+
+%include <tail.h>

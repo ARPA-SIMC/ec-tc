@@ -1,0 +1,26 @@
+#!/bin/bash
+#SBATCH --qos=nf
+#SBATCH --account=spitrasp
+#SBATCH --job-name=get_mars
+#SBATCH --output=get_mars.log
+#SBATCH --error=get_mars.log
+#SBATCH --time=23:59:00
+#SBATCH --mail-type=FAIL
+
+#-------------------------------------------------------------------------------
+# Script to run a batch MARS query.
+# For example: retreive IFS analysis and forecasts to check nwp-ts pre-processing
+#-------------------------------------------------------------------------------
+set -x
+set -e
+
+# Command line
+if [ $1 = "-h" -o $1 = "--help" ] ; then
+  echo "Use get_IFS_MARS query_file"
+  exit
+fi
+
+# run MARS query
+mars $1
+
+exit

@@ -1,0 +1,174 @@
+#!/bin/bash
+%include <init_serial_fast.h>
+%include <eccodes-2.35.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+#-------------------------------------------------------------------------
+# Set the environment
+
+anno=`echo $YMD |cut -c 1-4`
+mese=`echo $YMD |cut -c 5-6`
+giorno=`echo $YMD |cut -c 7-8`
+res=1279
+run_len=%RUN_LEN%
+bc_step=%BC_STEP%
+
+# direcotry ???
+DATABASE_DIR=${RUNDIR}
+
+# directory containing DWD icon tools binaries
+ICONTOOLS_DIR=${EXEC}/icontools
+
+# file name of input grid, for IFS this is the initial data file
+INGRID=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/ifs_oper_T1279_"$YMD""$starthour".grb
+
+# file name of limited-area (output) grid
+LOCALGRID=${DATABASE_DIR}/${GRID}_DOM01.nc
+
+# directory and filename of files to remap
+DATADIR=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'
+
+# output directory for extracted boundary data
+OUTDIR=${DATABASE_DIR}/Remapped/lbc
+
+# icontools executable
+BINARY_REMAP=iconremap
+
+# Apparently Icon performs time interpolation on exetrnal SST/FRICE, therefore
+# data must cover the entire Icon run
+# ifcsteps_req = Last forecast step required in this run segment
+# day_req = number of daily SST/FRICE data required
+fcsteps_req=$(($run_len-($giorno-1)*24))
+day_req=$(( ($fcsteps_req - 1) / 24 + 1))
+
+if [ $day_req -lt 0 ] ; then
+  echo "No need to process data for run segment starting on "$giorno
+
+else
+
+# Build the list of files to process
+  ecffile_list=""
+  day=0
+  while [ $day -le $day_req -a $day -lt 5 ] ; do
+    curr_date=$(date -d "$YMD +${day}days" +%%Y%%m%%d%%H)
+    ecffile_list=${ecffile_list}" ifs_oper_T${res}_${curr_date}"
+    day=$(($day+1))
+  done
+
+  mkdir -p ${OUTDIR}
+  cd $OUTDIR
+
+  YMDH=${YMD}${starthour}
+  intp_method=3
+
+#-----------------------------------------------------------------------------
+# Extract boundary data SST
+
+  rm -f ncstorage.tmp_SST_${YMDH}*
+  rm -f ${OUTDIR}/SST_refresh.${YMD}.nc
+
+  cat > NAMELIST_ICONREMAP_FIELDS_SST_$YMDH << EOFA
+!
+&input_field_nml  ! vertical velocity
+ inputname      = "SST"
+ outputname     = "SST"
+ intp_method = $intp_method
+/
+EOFA
+
+  for datafile in $ecffile_list ; do
+
+    cat > NAMELIST_ICONREMAP_SST_$YMDH << EOFB
+&remap_nml
+ in_grid_filename  = '${INGRID}'
+ in_filename       = '${DATADIR}/${datafile}.grb'
+ in_type           = 1
+ out_grid_filename = '${LOCALGRID}'
+ out_filename      = '${OUTDIR}/${datafile}_SST.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage_tmp_SST_${YMDH}"
+/
+EOFB
+    ${ICONTOOLS_DIR}/${BINARY_REMAP} -q   \
+            --remap_nml NAMELIST_ICONREMAP_SST_$YMDH                      \
+            --input_field_nml NAMELIST_ICONREMAP_FIELDS_SST_$YMDH
+    cdo cat ${OUTDIR}/${datafile}_SST.nc ${OUTDIR}/SST_refresh.${YMD}.nc
+
+  done
+
+  cdo settunits,seconds ${OUTDIR}/SST_refresh.${YMD}.nc ${OUTDIR}/SST_refresh_tmp.nc
+  mv ${OUTDIR}/SST_refresh_tmp.nc ${OUTDIR}/SST_refresh.${YMD}.nc
+
+#-----------------------------------------------------------------------------
+# Extract boundary data FR_ICE
+
+  rm -f ncstorage.tmp_FRICE_${YMDH}*
+  rm -f ${OUTDIR}/SIC_refresh.${YMD}.nc
+
+  cat > NAMELIST_ICONREMAP_FIELDS_FRICE_$YMDH << EOFC
+!
+&input_field_nml  ! vertical velocity
+ inputname      = "ci"
+ outputname     = "FR_ICE"
+ intp_method = $intp_method
+/
+EOFC
+
+  for datafile in $ecffile_list ; do
+
+    cat > NAMELIST_ICONREMAP_FRICE_$YMDH << EOFD
+&remap_nml
+ in_grid_filename  = '${INGRID}'
+ in_filename       = '${DATADIR}/${datafile}.grb'
+ in_type           = 1
+ out_grid_filename = '${LOCALGRID}'
+ out_filename      = '${OUTDIR}/${datafile}_FRICE.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage_tmp_FRICE_${YMDH}"
+/
+EOFD
+
+    ${ICONTOOLS_DIR}/${BINARY_REMAP} -v   \
+            --remap_nml NAMELIST_ICONREMAP_FRICE_$YMDH                      \
+            --input_field_nml NAMELIST_ICONREMAP_FIELDS_FRICE_$YMDH
+    cdo setname,SIC ${OUTDIR}/${datafile}_FRICE.nc ${OUTDIR}/${datafile}_SIC.nc
+    cdo cat ${OUTDIR}/${datafile}_SIC.nc ${OUTDIR}/SIC_refresh.${YMD}.nc
+
+  done
+
+  cdo settunits,seconds ${OUTDIR}/SIC_refresh.${YMD}.nc ${OUTDIR}/SIC_refresh_tmp.nc
+  mv ${OUTDIR}/SIC_refresh_tmp.nc ${OUTDIR}/SIC_refresh.${YMD}.nc
+
+#-----------------------------------------------------------------------------
+# append SST and FR_ICE to the remaining ouptut data
+
+  cp ${OUTDIR}/SST_refresh.${YMD}.nc ${OUTDIR}/SST_SIC_refresh.${YMD}.nc
+  ncks -A ${OUTDIR}/SIC_refresh.${YMD}.nc ${OUTDIR}/SST_SIC_refresh.${YMD}.nc
+
+#-----------------------------------------------------------------------------
+# clean-up
+
+  rm -f ncstorage_tmp_SST_${YMDH}*  ncstorage_tmp_FRICE_${YMDH}*
+  rm -f  NAMELIST_ICONREMAP_FRICE_${YMDH}* NAMELIST_ICONREMAP_FIELDS_FRICE_${YMDH}*
+  rm -f  NAMELIST_ICONREMAP_SST_${YMDH}* NAMELIST_ICONREMAP_FIELDS_SST_${YMDH}*
+  rm -f *FRICE*
+
+fi
+
+%include <tail.h>
+#
+# END OF JOB
+#

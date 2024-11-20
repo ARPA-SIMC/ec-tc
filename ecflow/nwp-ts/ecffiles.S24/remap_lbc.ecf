@@ -1,0 +1,211 @@
+#!/bin/bash
+%include <init_serial_fast.h>
+%include <eccodes-2.35.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+#-------------------------------------------------------------------------
+# Set the environment
+
+anno=`echo $YMD |cut -c 1-4`
+mese=`echo $YMD |cut -c 5-6`
+giorno=`echo $YMD |cut -c 7-8`
+res=1279
+run_len=%RUN_LEN%
+bc_step=%BC_STEP%
+top_nud=%TOP_NUD%
+trange_ini=%TRANGE_INI%
+tranges=%TRANGES%
+
+# direcotry ???
+DATABASE_DIR=${RUNDIR}
+
+# directory containing DWD icon tools binaries
+ICONTOOLS_DIR=${EXEC}/icontools
+
+# file name of input grid, for IFS this is the initial data file
+INGRID=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/ifs_oper_T1279_"$YMD""$starthour".grb
+
+# file name of limited-area (output) grid
+LOCALGRID=${DATABASE_DIR}/${GRID}_DOM01.nc
+
+# directory and filename of initial file
+DATAFILE_DIR=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/
+
+# working directory
+WORKDIR=${DATABASE_DIR}/Remapped/${trange_ini}
+
+# output directory for extracted boundary data
+OUTDIR=${DATABASE_DIR}/Remapped/lbc
+
+# icontools executable
+BINARY_ICONSUB=iconsub
+BINARY_REMAP=iconremap
+
+### Last forecast step required in this run segment
+### fcsteps_req=$(($run_len-($giorno-1)*24))   
+### nstep_segment=$((5*24))
+
+# Last forecast step to process
+run_len_seg=$(($run_len-($giorno-1)*24))   # residual lenght of the overall run (hours form beginning of segment)
+trange_fin=$(($trange_ini+$tranges-1))     # last forecast step required (hours form beginning of segment)
+if [ $run_len_seg -lt $trange_fin ] ; then
+  trange_fin=$run_len_seg
+fi
+  
+if [ $run_len_seg -lt $trange_ini ] ; then
+  echo "No need to process data for bc "$tranges"h segment starting on "$giorno" + "$trange_ini
+
+else
+
+# Build the list of files to process
+  ecffile_list=""
+  step=${trange_ini}
+  while [ $step -le $trange_fin ] ; do
+    curr_date=$(date -d "${YMD} +${step} hours" +%%Y%%m%%d%%H)
+    ecffile_list=${ecffile_list}" ifs_oper_T${res}_${curr_date}"
+    step=$(($step+$bc_step))
+  done
+
+# If required, create auxiliary files with the cells of the boundary zone
+  if [ $top_nud = "OFF" ] ; then
+    cat > NAMELIST_ICONSUB << EOFA
+    &iconsub_nml
+      grid_filename    = '${LOCALGRID}',
+      output_type      = 4,
+      lwrite_grid      = .TRUE.,
+    /
+    &subarea_nml
+      ORDER            = "${OUTDIR}/${AUXGRID}",
+      grf_info_file    = '${LOCALGRID}',
+      min_refin_c_ctrl = 1
+      max_refin_c_ctrl = 14
+    /
+EOFA
+    
+    ${ICONTOOLS_DIR}/${BINARY_ICONSUB} --nml NAMELIST_ICONSUB 
+  fi
+
+#-----------------------------------------------------------------------------
+
+  mkdir -p ${OUTDIR}
+  mkdir -p ${WORKDIR}
+  cd ${WORKDIR}
+  rm -f ncstorage.tmp*
+  intp_method=3
+
+  cat > NAMELIST_ICONREMAP_FIELDS << EOFB
+!
+&input_field_nml  ! vertical velocity
+ inputname      = "OMEGA"
+ outputname     = "W"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! temperature
+ inputname      = "T"
+ outputname     = "T"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! specific humidity
+ inputname      = "QV"
+ outputname     = "QV"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! cloud liquid water content
+ inputname      = "CLWC"
+ outputname     = "QC"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! cloud ice content
+ inputname      = "CIWC"
+ outputname     = "QI"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! snow water content
+ inputname      = "CSWC"
+ outputname     = "QS"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! horiz. wind comp. u
+ inputname      = "U"
+ outputname     = "U"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! horiz. wind comp. v
+ inputname      = "V"
+ outputname     = "V"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! surface pressure
+ inputname      = "LNSP"
+ outputname     = "LNPS" 
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! geopotential
+ inputname      = "Z"
+ outputname     = "GEOP_SFC"
+ intp_method = ${intp_method}
+ loptional      = .TRUE.
+/
+&input_field_nml  ! geopotential
+ inputname      = "FI"
+ outputname     = "GEOP_ML" 
+ intp_method = ${intp_method}
+ loptional      = .TRUE.
+/
+EOFB
+
+  if [ $top_nud = "ON" ] ; then   # TopBoundaryNudging=ON: write full grid
+    out_grid=${LOCALGRID}
+  else                            # TopBoundaryNudging=OFF: write only boundaries 
+    out_grid=${OUTDIR}/${AUXGRID}.grid.nc
+  fi
+
+  for datafile in $ecffile_list ; do
+
+    cat > NAMELIST_ICONREMAP << EOFC
+&remap_nml
+ in_grid_filename  = '${INGRID}'
+ in_filename       = '${DATAFILE_DIR}/${datafile}.grb'
+ in_type           = 1
+ out_grid_filename = '${out_grid}'
+ out_filename      = '${OUTDIR}/${datafile}_lbc.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage.tmp"
+/
+EOFC
+
+     echo "Remapping BC from "$(basename $datafile)
+     ${ICONTOOLS_DIR}/${BINARY_REMAP} -v --remap_nml NAMELIST_ICONREMAP \
+            --input_field_nml NAMELIST_ICONREMAP_FIELDS
+
+#   Check if data have been indeed created
+    if [ ! -f ${OUTDIR}/${datafile}_lbc.nc ] ; then
+      ecflow_client --abort="${OUTDIR}/${datafile}_lbc.nc"
+      exit 0
+    fi
+
+  done
+
+date
+fi
+
+%include <tail.h>
+#
+# END OF JOB
+#

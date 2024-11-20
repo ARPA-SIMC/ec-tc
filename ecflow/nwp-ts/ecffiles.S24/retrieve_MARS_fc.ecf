@@ -1,0 +1,169 @@
+#!/bin/bash
+%include <init_serial_slow.h>
+%include <eccodes-2.35.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+
+#-------------------------------------------------------------------------
+# 1) Set the environment
+
+hour=$starthour
+anno=`echo $YMD |cut -c 1-4`
+mese=`echo $YMD |cut -c 5-6`
+giorno=`echo $YMD |cut -c 7-8`
+nlevdet=%NLEVDET%
+area=%DET_AREA%
+grid=%DET_GRID%
+res=1279
+extract_day=%EXTRACT_DAY%
+run_len=%RUN_LEN%
+
+mylevels=1/TO/$nlevdet                                                 #
+bc_step=%BC_STEP%
+
+# Last forecast step required in current day
+fcsteps_req=$(($run_len-($giorno+$extract_day-1)*24))
+
+if [ $fcsteps_req -le 0 ] ; then
+  echo "No need to extract forecasts for day "$(($giorno+$extract_day))
+  
+else
+# Day to actually extract
+  rtYMD=$(date -d "${YMD} +${extract_day} day" +%%Y%%m%%d)
+
+  if [ $fcsteps_req -gt 18 ] ; then
+    time_list="00 06 12 18"
+  elif [ $fcsteps_req -gt 12 ] ; then
+    time_list="00 06 12"
+  elif [ $fcsteps_req -gt 6 ] ; then
+    time_list="00 06"
+  elif [ $fcsteps_req -gt 0 ] ; then
+    time_list="00"
+  fi
+
+  if [ $bc_step = 3 ] ; then
+    trange_list="3"
+    mars_steps="3"
+  elif [ $bc_step = 1 ] ; then
+    trange_list="1 2 3 4 5"
+    mars_steps="1/to/5/by/1"
+  else
+    echo "BC_STEP not allowed: "$bc_step
+    exit 10
+  fi
+  
+# Path
+  out_dir=${RUNDIR}/${YMD}${starthour}_bcic
+  work_dir=${RUNDIR}/${YMD}${starthour}_bcic/d${extract_day}_fc
+  mkdir -p $work_dir
+  cd $work_dir  
+
+# Build grib filter, to split MARS output according to timerange
+# Patch (Oct 2024)
+# In MARS data, surface fiels have longitudeOfFirstGridPointInDegrees=-12.5, 
+# while model level fields have it =347.5 (360-12.5): grib header must be corrected. 
+  rm -f forc.filt
+  cat <<EOFA > forc.filt
+set longitudeOfFirstGridPointInDegrees=347.5;
+write "tmp.[stepRange].grb";
+EOFA
+
+#-------------------------------------------------------------------------
+# 2) Extract IFS forecasts every $bc_step hours, to fill the gaps between analyses
+
+  for time in ${time_list[@]}; do
+
+    vt_list=""
+    outf_list_local=""
+    outf_list_ecfs=""
+    for trange in $trange_list ; do
+      vt=$(date -ud "${rtYMD} $time + ${trange}hours" +%%Y%%m%%d%%H)
+      outf=ifs_oper_T${res}_${vt}.grb
+      vt_list=${vt_list}" "${vt}
+      outf_list_local=${outf_list_local}" "${out_dir}/${outf}
+      outf_list_ecfs=${outf_list_ecfs}" "ec:${BASEDIR}/ic_bc/${anno}${mese}/${outf}
+    done
+
+# 2.1) Check if IFS have already been extcted (search in working dir, then in ECFS)
+# Patch (Oct 2024)
+# In MARS data, surface fiels have longitudeOfFirstGridPointInDegrees=-12.5, 
+# while model level fields have it =347.5 (360-12.5): grib header must be corrected. 
+
+#   Check if all required ouptut files are in local output dir
+    ls $outf_list_local 2> /dev/null && status=0 || status=1
+    if [ $status = 0 ] ; then
+      echo $rtYMD" "$time": IFS data are already in working dir"
+    
+#   Check if all required ouptut files are in ECFS
+    else
+      els $outf_list_ecfs 2> /dev/null && status=0 || status=1
+      if [ $status = 0 ] ; then
+        echo $rtYMD" "$time": copy IFS data from ECFS"
+        ecp $outf_list_ecfs $out_dir
+
+#     Extract form MARS
+      else
+        echo $rtYMD" "$time": IFS data not in working dir and ECFS, extract from Mars"
+
+	if [ $time = "00" -o $time = "12" ] ; then
+          mars_stream="oper"
+        elif [ $time = "06" -o $time = "18" ] ; then
+          mars_stream="scda"
+        fi
+
+	cat > ${rtYMD}${time}.query << EOFB
+# MARS request for ifs2icon
+retrieve,
+        padding  = 0,
+        accuracy = 16,
+        class    = od,
+        expver   = 1, 
+        stream   = ${mars_stream},
+        domain   = g,
+        type     = fc,
+        date     = ${rtYMD},
+        time     = ${time},
+        step     = ${mars_steps},
+        target   = "${rtYMD}${time}.grb",
+        param    = u/v/w/t/q/clwc/ciwc/crwc/cswc,
+        repres   = gg,
+        resol    = auto,
+        grid     = ${grid},
+        area     = ${area},                #54/3/24.5/46.5, # previously: 51/9/25/40,
+        levtype  = ml,                                  # model levels,
+        levelist = ${mylevels}
+retrieve,
+        param    = lnsp,
+        levelist = 1
+retrieve,
+        param    = sst/src/z,
+        repres   = gg,
+        resol    = off,
+        levtype  = surface
+EOFB
+
+        /usr/local/bin/mars ${rtYMD}${time}.query
+
+# Split output in one file per timerange
+# Oct 2024: since output mixes grib1 (surface) and grib2 (model levels), it is necessary
+# to use the derived key "stepRange" instead of the grib2 standard "forecastTime"	
+        echo "Process IFS grib"
+        rm -f tmp.*.grb
+        grib_filter forc.filt ${rtYMD}${time}.grb
+
+        echo "Save to ECFS"
+        for file in $(ls tmp.*.grb) ; do
+	  trange=$(echo $file | cut -d . -f 2)
+          vt=$(date -ud "${rtYMD} $time + ${trange}hours" +%%Y%%m%%d%%H)
+          outf=ifs_oper_T${res}_${vt}.grb
+          mv $file ${out_dir}/${outf}
+          ecp ${out_dir}/${outf} ec:${BASEDIR}/ic_bc/${anno}${mese}/.
+        done
+      fi
+    fi
+  done
+fi
+
+%include <tail.h>

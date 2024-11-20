@@ -1,0 +1,29 @@
+#!/bin/bash
+%include <init_serial_fast.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+sleep 7 ### to have a bit of time to suspend something
+
+# If needed, retrieve physiographic data and orography file from ecfs
+if [ ! -f $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/${GRID}_DOM01.nc ] ; then
+  ecp ec:${BASEDIR}/grids/icon-leps_${GRID}/*  $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/.
+fi
+
+# Build the tree of working directories
+cd $MAINDIR
+mkdir -p bc_ic_00
+mkdir -p bc_ic_00/"$YMD""$starthour"'_bcic'
+mkdir -p post_00
+
+# Link grid and physiografic files
+cd bc_ic_00
+ln -fs $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/${GRID}_DOM01.nc .
+ln -fs $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/${GRID}_DOM01.parent.nc .
+ln -fs $RESCUE/icon-lam/ICON-domain/icon-leps_${GRID}/external_parameter_icon_${GRID}_DOM01_tiles.nc .
+
+%include <tail.h>
+#
+# END OF JOB
+#

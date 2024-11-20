@@ -1,0 +1,295 @@
+#!/bin/bash
+%include <init_serial_fast.h>
+%include <eccodes-2.35.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+
+# This script must only be run for the first day of the first run segment 
+giorno=`echo $YMD |cut -c 7-8`
+if [ $giorno != "01" ] ; then
+echo "This script must only be run for the first day of the first run segment"
+%include <tail.h>
+fi
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+export ATP_ENABLED=1
+
+# ----------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------
+
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+
+# SETTINGS: DIRECTORIES AND INPUT/OUTPUT FILE NAMES --------------------------
+DATABASE_DIR=${RUNDIR}
+
+# directory containing DWD icon tools binaries
+ICONTOOLS_DIR=${EXEC}/icontools
+
+# file name of input grid, for IFS this is the initial data file
+INGRID=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/ifs_oper_T1279_"$YMD""$starthour".grb
+
+# file name of limited-area (output) grid
+LOCALGRID=${DATABASE_DIR}/${GRID}_DOM01.nc
+
+# directory and filename of initial file
+DATAFILE=${DATABASE_DIR}/"$YMD""$starthour"'_bcic'/ifs_oper_T1279_"$YMD""$starthour".grb
+
+# output directory for extracted boundary data
+OUTDIR=${DATABASE_DIR}/Remapped/
+
+# Date of initial file
+OUTFILENAME=init_ifsRed_"$YMD""$starthour"
+
+# ----------------------------------------------------------------------
+# copy input data: grids, external parameters
+# ----------------------------------------------------------------------
+#
+################################################################################
+#
+# set dates to be processed
+
+BINARY_REMAP=iconremap
+
+mkdir -p ${OUTDIR}
+cd ${OUTDIR}
+rm -f ncstorage.tmp*
+intp_method=3
+
+# create ICON master namelist
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cat > NAMELIST_ICONREMAP << EOF
+! interpolation regular grid-> ICON
+&remap_nml
+ in_grid_filename  = "${INGRID}"
+ in_filename       = "${DATAFILE}"
+ in_type           = 1
+ out_grid_filename = "${LOCALGRID}"
+ out_filename      = "${OUTDIR}/${OUTFILENAME}.nc"
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage.tmp"
+/
+! DEFINITIONS FOR IFS INPUT DATA
+!
+&input_field_nml  ! temperature
+ inputname      = "T"         
+ outputname     = "T"          
+ code           = 130     
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! horiz. wind comp. u
+ inputname      = "U"
+ outputname     = "U"
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! horiz. wind comp. u
+ inputname      = "V"
+ outputname     = "V"
+ intp_method = ${intp_method}
+/
+!&input_field_nml  ! horiz. wind comp. u
+! inputname      = "U","V"
+! outputname     = "VN"
+! intp_method = ${intp_method}
+!/
+&input_field_nml  ! vertical velocity
+ inputname      = "OMEGA" 
+ outputname     = "W"
+ code           = 135
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! surface pressure
+ inputname      = "LNSP"
+ outputname     = "LNPS" 
+ code           = 152
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! geopotential
+ inputname      = "Z"
+ outputname     = "GEOP_SFC" 
+ code           = 129
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! geopotential
+ inputname      = "FI"
+ outputname     = "GEOP_ML" 
+ code           = 129
+ intp_method = ${intp_method}  
+/
+&input_field_nml  ! specific humidity
+ inputname      = "QV"
+ outputname     = "QV" 
+ code           = 133
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! cloud liquid water content
+ inputname      = "CLWC"
+ outputname     = "QC" 
+ code           = 246
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! cloud ice content
+ inputname      = "CIWC"
+ outputname     = "QI" 
+ code           = 247 
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR" 
+ code           = 75 
+ intp_method = ${intp_method} 
+/
+&input_field_nml  ! snow water content
+ inputname      = "CSWC"
+ outputname     = "QS" 
+ code           = 76
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! snow temperature
+ inputname      = "TSN"
+ outputname     = "T_SNOW" 
+ code           = 238
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! water content of snow
+ inputname      = "SD"
+ outputname     = "W_SNOW" 
+ code           = 141
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! density of snow
+ inputname      = "RSN"
+ outputname     = "RHO_SNOW" 
+ code           = 33
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! snow albedo
+ inputname      = "ASN"
+ outputname     = "ALB_SNOW" 
+ code           = 32
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! skin temperature
+ inputname      = "SKT"
+ outputname     = "SKT" 
+ code           = 235
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! sea surface temperature
+ inputname      = "SST"
+ outputname     = "SST" 
+ code           = 34
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil temperature level 1
+ inputname      = "STL1"
+ outputname     = "STL1" 
+ code           = 139
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil temperature level 2
+ inputname      = "STL2"
+ outputname     = "STL2" 
+ code           = 170
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil temperature level 3
+ inputname      = "STL3"
+ outputname     = "STL3" 
+ code           = 183
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil temperature level 4
+ inputname      = "STL4"
+ outputname     = "STL4" 
+ code           = 236
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! sea-ice cover
+ inputname      = "CI"
+ outputname     = "CI" 
+ code           = 31
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! water cont. of interception storage
+ inputname      = "SRC"
+ outputname     = "W_I" 
+ code           = 198 
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! surface roughness
+ inputname      = "SR"
+ outputname     = "Z0" 
+ code           = 173
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! Land/sea mask
+ inputname      = "LSM"
+ outputname     = "LSM" 
+ code           = 172 
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil moisture index layer 1
+ inputname      = "SWVL1"
+ outputname     = "SMIL1" 
+ code           = 80
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil moisture index layer 2
+ inputname      = "SWVL2"
+ outputname     = "SMIL2" 
+ code           = 81
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil moisture index layer 3
+ inputname      = "SWVL3"
+ outputname     = "SMIL3" 
+ code           = 82
+ intp_method = ${intp_method}
+/
+&input_field_nml  ! soil moisture index layer 4
+ inputname      = "SWVL4"
+ outputname     = "SMIL4" 
+ code           = 83
+ intp_method = ${intp_method}
+/
+EOF
+
+#time aprun  -ss -N $EC_tasks_per_node  -n $EC_total_tasks  -d $EC_threads_per_task  -j $EC_hyperthreads         \
+#            ${ICONTOOLS_DIR}/${BINARY_REMAP} -vvvvv -q \
+#            --remap_nml NAMELIST_ICONREMAP 2>&1
+
+codes_info
+${ICONTOOLS_DIR}/${BINARY_REMAP} -v --remap_nml NAMELIST_ICONREMAP
+
+
+#ret=$?
+#if [[ $ret -eq 99 ]]; then
+#      ecflow_client --abort="ICONREMAP failed with STOP 99"
+#      exit $ret
+#fi
+
+###Check if data have been indeed created
+if [ ! -f ${OUTDIR}/${OUTFILENAME}.nc ] ; then
+      ecflow_client --abort="${OUTDIR}/${OUTFILENAME}.nc"
+      exit 0
+fi
+
+date
+
+
+%include <tail.h>
+#
+# END OF JOB
+#

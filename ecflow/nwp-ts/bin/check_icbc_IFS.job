@@ -1,0 +1,30 @@
+#!/bin/bash
+in_root=/ec/res4/scratch/mck/nwptsH/S24icon202410/bc_ic_00
+work_dir=/ec/res4/scratch/mck/check_icbc
+
+module load ecmwf-toolbox
+cd $work_dir
+
+for seg in 2021120100 2021120600 2021121100 2021121600 2021122100 2021122600 2021123100 ; do
+  in_dir=${in_root}/${seg}_bcic
+  for file in $(ls ${in_dir}/ifs_oper_T1279_??????????.grb) ; do
+    rm -f tmp.ggt
+    vtime_file=$(basename $file | cut -d _ -f 4 | awk '{print substr($1,1,10)}')
+    grib_get -p dataDate,dataTime,stepRange $file | uniq > tmp.ggt
+    nl=$(wc -l tmp.ggt | cut -d \  -f 1)
+    if [ $nl -ne 1 ] ; then
+      echo "File ${file},gget anomaly, nl=${nl}"
+      exit
+    fi
+    string=$(cat tmp.ggt)
+    rtime=$(echo $string | awk '{print $1" "$2}')
+    trange=$(echo $string | awk '{print $3}')
+    vtime=$(date -d "${rtime} + ${trange}hours" "+%Y%m%d%H")
+    if [ $vtime = $vtime_file ] ; then
+      echo "File ${file} ok"
+    else
+      echo "File ${file}, vtime anomaly: grib ${vtime}, file name ${vtime_file}"
+      exit
+    fi
+  done
+done

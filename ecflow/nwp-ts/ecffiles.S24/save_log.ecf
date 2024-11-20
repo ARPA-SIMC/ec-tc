@@ -1,0 +1,128 @@
+#!/bin/bash
+%include <init_serial_slow.h>
+%include <head.h>
+%include <ecflow.h>
+
+echo "Hello world"
+
+# Check if this day must be processed, or the overal run is already finished
+giorno=`echo $YMD |cut -c 7-8`
+run_len=%RUN_LEN%
+trange=$(( ($giorno-1)*24 ))
+if [ $trange -gt $run_len ] ; then
+echo "Overall run is already finished at ${YMD}00: ther are no logfiles to be saved"  
+%include <tail.h>
+fi
+
+# Suffix for files archived in ECFS
+label=$VERSION 
+
+# Suite path (hardcoded in nwptshICON.def and exported by init_serial.h)
+# RUNDIR=/ec/res4/scratch/mck/nwptsH/%VERSION%/bc_ic_00
+# DOPOCORSA=/ec/res4/scratch/mck/nwptsH/%VERSION%/post_00
+# ECF_OUT=/ec/res4/scratch/mck/nwptsH/%VERSION%/log
+#
+# Archive path in ECFS (hardcoded in the task definition in nwptshICON.def) 
+# BASEDIR=/mck/nwp-ts/
+
+log_root=${ECF_OUT}/nwptsICON24/nwp_suite_00
+
+cd $DOPOCORSA
+
+# List of tasks for which the logfile must be archived
+tasks=( \
+  retrieve_MARS_ana \
+  retrieve_MARS_ana \
+  retrieve_MARS_ana \
+  retrieve_MARS_ana \
+  retrieve_MARS_ana \
+  retrieve_MARS_fc \
+  retrieve_MARS_fc \
+  retrieve_MARS_fc \
+  retrieve_MARS_fc \
+  retrieve_MARS_fc \
+  retrieve_ICON \
+  run_ICON_LAM \
+  remap_ICON \
+  remap_IFS_init \
+  remap_SST_FRICE \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  remap_lbc \
+  copy_2_ecfs \
+  )
+
+subdirs=( \
+  get_bc_ic/retrieve_MARS_day1 \
+  get_bc_ic/retrieve_MARS_day2 \
+  get_bc_ic/retrieve_MARS_day3 \
+  get_bc_ic/retrieve_MARS_day4 \
+  get_bc_ic/retrieve_MARS_day5 \
+  get_bc_ic/retrieve_MARS_day1 \
+  get_bc_ic/retrieve_MARS_day2 \
+  get_bc_ic/retrieve_MARS_day3 \
+  get_bc_ic/retrieve_MARS_day4 \
+  get_bc_ic/retrieve_MARS_day5 \
+  get_bc_ic \
+  model \
+  model/remap \
+  model/remap \
+  model/remap \
+  model/remap/remap_IFS_lbc/remap_01 \
+  model/remap/remap_IFS_lbc/remap_02 \
+  model/remap/remap_IFS_lbc/remap_03 \
+  model/remap/remap_IFS_lbc/remap_04 \
+  model/remap/remap_IFS_lbc/remap_05 \
+  model/remap/remap_IFS_lbc/remap_06 \
+  model/remap/remap_IFS_lbc/remap_07 \
+  model/remap/remap_IFS_lbc/remap_08 \
+  model/remap/remap_IFS_lbc/remap_09 \
+  model/remap/remap_IFS_lbc/remap_10 \
+  copy_2_ecfs \
+  )
+
+ntasks=${#tasks[*]}
+
+# Tranche of the run being processed
+YM=${YMD:0:6}
+DD=${YMD:6:2}
+
+# List of icon logfiles to archive
+input_dir=${RUNDIR}/${YMD}00
+files="${input_dir}/icon_master.namelist \
+  ${input_dir}/nml.atmo.log \
+  ${input_dir}/NAMELIST_${VERSION} \
+  ${input_dir}/NAMELIST_ICON_output_atm"
+
+# List of task logfiles to archive 
+cnt=0
+while [ $cnt -lt $ntasks ] ; do
+  task=${tasks[$cnt]}
+  subdir=${subdirs[$cnt]}
+  set +e; file=$(ls -t ${log_root}/${subdir}/${task}.*| head -n 1) ; set -e
+  files=${files}" "${file}
+  cnt=$(($cnt+1))
+done
+
+# Build tar archive
+tar_file=${label}_${YMD}_log.tar.gz
+tar -czf $tar_file $files
+
+# Save to ecfs
+ecf_dir=ec:/${BASEDIR}/out/${label}/${YM}
+emkdir -p $ecf_dir
+
+ecp $tar_file $ecf_dir
+echmod 644 ${ecf_dir}/${tar_file}
+
+%include <tail.h>
+#
+# END OF JOB
+#
