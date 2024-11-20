@@ -1,9 +1,11 @@
 # this script is sourced with set -a (automatic export), so there is
 # no need to export every single variable
 
-MODEL_STOP_00=120  # 120
-MODEL_STOP_12=0  # 84
-ENS_TOTAL_MEMB=4 # this must coincide with the value in suite definition until there will be a mechanism to dynamically reduce the number of members
+MODEL_STOP_00=132
+MODEL_STOP_06=132
+MODEL_STOP_12=132
+MODEL_STOP_18=132
+ENS_TOTAL_MEMB=20 # this must coincide with the value in suite definition until there will be a mechanism to dynamically reduce the number of members
 GRIB_CENTER=80
 GRIB_SUBCENTER=255
 MODEL_FCENS_GP=131

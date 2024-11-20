@@ -220,8 +220,9 @@ class TcPre(TcFamily):
             lcmpl = (ddt + datetime.timedelta(hours=11, minutes=59)).time().isoformat(timespec="minutes")
             fam.add_late(ecflow.Late(active=ltact, complete=lcmpl))
             if self.conf["predefault"] != pre: fam.add_defstatus(ecflow.Defstatus("complete"))
-            fam.add_task(f"retrieve_cla_pl_{pre}").add_trigger("../start_suite_eps == complete")
-            fam.add_task("cluster_analysis").add_trigger(f"./retrieve_cla_pl_{pre} == complete")
+            if "eps" in self.conf["subsuites"]: # homogeneize condition, either subsuite "eps" or membrange
+                fam.add_task(f"retrieve_cla_pl_{pre}").add_trigger("../start_suite_eps == complete")
+                fam.add_task("cluster_analysis").add_trigger(f"./retrieve_cla_pl_{pre} == complete")
             get = fam.add_family("retrieve_ic_bc") # inlimit /ileps_timecrit:get_ml_limit
             for eps_memb in rangeexpand(self.conf["membrange"]):
                 fname = membname(eps_memb, "eps_member_")
@@ -248,7 +249,8 @@ class TcIconSoil(TcFamily):
         fam = node.add_family("iconsoil")
         if self.conf.get("iconsoil", None) is None:
             fam.add_defstatus(ecflow.Defstatus("complete"))
-        fam.add_trigger("./start_suite_ana == complete")
+        if "ana" in self.conf["subsuites"]: # is this trigger necessary?
+            fam.add_trigger("./start_suite_ana == complete")
         fam.add_task("setup_iconsoil")
         fam.add_task("get_iconsoil").add_trigger("./setup_iconsoil == complete")
         fam.add_task("iconsoil_to_leps").add_trigger("./get_iconsoil == complete")

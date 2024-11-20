@@ -16,15 +16,15 @@ cd $REMAP_DIR
 # verify for OpenMP
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"
-export RLIMIT_CORE=0
-export ATP_MAX_CORES=0
-export ATP_ENABLED=1
-
 
 if [ $TIME = "0000" ] ; then
   export MODEL_STOP=$MODEL_STOP_00
+elif [ $TIME = "0600" ] ; then
+  export MODEL_STOP=$MODEL_STOP_06
 elif [ $TIME = "1200" ] ; then
   export MODEL_STOP=$MODEL_STOP_12
+elif [ $TIME = "1800" ] ; then
+  export MODEL_STOP=$MODEL_STOP_18
 fi
 
 if [ "$ENS_MEMB" = 0 ] ; then # deterministic
