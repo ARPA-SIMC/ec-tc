@@ -1,10 +1,10 @@
 # this script is sourced with set -a (automatic export), so there is
 # no need to export every single variable
 
-MODEL_STOP_00=132
-MODEL_STOP_06=132
-MODEL_STOP_12=132
-MODEL_STOP_18=132
+MODEL_STOP_00=120
+MODEL_STOP_06=126
+MODEL_STOP_12=120
+MODEL_STOP_18=126
 ENS_TOTAL_MEMB=20 # this must coincide with the value in suite definition until there will be a mechanism to dynamically reduce the number of members
 GRIB_CENTER=80
 GRIB_SUBCENTER=255
@@ -45,6 +45,8 @@ DET_HINCBD=3
 # ensemble configuration
 NECEPSMEMB=51
 NLEPSMEMB=20
+#deb NECEPSMEMB=5
+#deb NLEPSMEMB=4
 CLA_LAG=(0 12)
 CLA_STEP=(96 120)
 

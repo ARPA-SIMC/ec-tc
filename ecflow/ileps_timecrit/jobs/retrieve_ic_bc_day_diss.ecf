@@ -1,101 +1,218 @@
 %include <sched_prolog.h>
-%include <sched_serial.h>
+%include <sched_serial_mem.h>
 %include <script_prolog.h>
 
-# retrieve initial surface/soil fields, mostly on target grid,
-# retrieve also soil moisture and soil type on global reduced Gaussian
-# for further computation of smi
-retrieve_surf_ana_mars() {
+retrieve_ana_diss() {
+#-------------------------------------------------------------------------------
+# Retrieve from $EC_DISS fields for initial conditions of one LEPS member.
+# Data can be either analysis or 12h forecasts
+# Special processing from gaussian grid for SST and SWV
+#
+# Use enviromnent varibles set by main program:
+# $refdate    (reftime of IFS run to be retrieved)
+# $reftime
+# $lag        (forecast step of data to be retrieved)
+# $ENS_MEMBER (ens. member, relative to LEPS numeration)
+# $elem       (ens. member, relative to IFS numeration)
+# $disspref   (prefix for input files: ITD or ITX)
+# $geoinfo    (chiavi MARS relative al dominio dei dati IFS: AREA+GRID)
+#
+# Input: files ITD or ITX, in $EC_DISS
+#
+# Output: groups of grib files, on regular grid, in $RETRIEVE_IC_BC_DIR =
+#   $TCWORK/work/ileps_tc_2.5km/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
 
-cat >req_${refdate}${reftime}_ana1 << FINIFINI
-RETRIEVE,
-$anfc,
-LEVTYPE=SFC,
-LEVELIST=OFF,
-REPRES=GG,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=SST/SRC/TSN/SKT/STL1/STL2/STL3/STL4/SD/RSN/ASN/CI,
-$geoinfo,
-EXPVER=$expid,
-$marsinfo,
-TARGET="data/ec_${refdate}${reftime}_surf.0"
+# Input files
+rt="$refdate $reftime"
+vt=$(date -d "${rt} +${lag}hours" +"%%Y%%m%%d %%H")
+file_rt=$(date -d "$rt" +"%%m%%d%%H")
+file_vt=$(date -d "$vt" +"%%m%%d%%H")
 
-RETRIEVE,
-LEVTYPE=ML,
-LEVELIST=1,
-REPRES=SH,
-PARAM=Z
+inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001c" # constant fields
+input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"   # all other fields
 
-FINIFINI
+# Split input file
+rm -f split.filt tmp.*.grb
 
-cat >req_${refdate}${reftime}_ana2 << FINIFINI
-RETRIEVE,
-$anfc_nolag,
-LEVTYPE=SFC,
-LEVELIST=OFF,
-REPRES=GG,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=Z/LSM/SR/CVL/CVH/SDOR/ISOR/ANOR/SLOR/SLT,
-$geoinfo,
-EXPVER=$expid,
-$marsinfo_ctrl,
-TARGET="data/ec_${refdate}${reftime}_const.0"
+echo "write \"tmp.[typeOfLevel].[shortName].[gridType].grb\";" > splitc.filt
+if [ $ENS_MEMB = 0 ] ; then
+  echo "write \"tmp.[typeOfLevel].[shortName].[gridType].grb\";" > split.filt
+else
+  cat << EOF > split.filt
+  if ( perturbationNumber == ${elem} ) {
+    write "tmp.[typeOfLevel].[shortName].[gridType].grb";
+  }
+EOF
+fi
 
-FINIFINI
+grib_filter splitc.filt $inputc
+grib_filter split.filt $input
 
-cat >req_${refdate}${reftime}_ana3 << FINIFINI
-RETRIEVE,
-$anfc,
-LEVTYPE=SFC,
-GRID=AV,
-AREA=OFF,
-LEVELIST=OFF,
-PARAM=SWVL1/SWVL2/SWVL3/SWVL4,
-$marsinfo,
-TARGET="data/ec_${refdate}${reftime}_ggswv.0"
+# Model levels + Z,lnsp on model layer 1
+target="data/ec_${refdate}${reftime}_ml.${lag}"
+rm -f $target
+for var in t u v w q clwc ciwc crwc cswc z lnsp ; do
+  cat tmp.hybrid.${var}.regular_ll.grb >> $target
+done
 
-RETRIEVE,
-$anfc_nolag,
-PARAM=SLT,
-$marsinfo_ctrl,
-TARGET="data/ec_${refdate}${reftime}_ggslt.0"
+# Surface fields
+target="data/ec_${refdate}${reftime}_surf.${lag}"
+for shortName in src tsn skt sd rsn asn ci ; do
+  cat tmp.surface.${shortName}.regular_ll.grb >> $target
+done
+for shortName in stl1 stl2 stl3 stl4 ; do
+  cat tmp.depthBelowLandLayer.${shortName}.regular_ll.grb >> $target
+done
 
-FINIFINI
+# Masked SST
+rm -f maskSST.mars
+cat << EOF > maskSST.mars
+READ,
+  SOURCE   = "tmp.surface.sst.reduced_gg.grb",
+  FIELDSET = sst
+READ,
+  SOURCE   = "tmp.surface.lsm.reduced_gg.grb",
+  FIELDSET = lsm
+COMPUTE,
+  FIELDSET = lsmbitmap,
+  FORMULA  = "bitmap((lsm>=0.5),1)"
+COMPUTE,
+  FIELDSET = sst_mask,
+  FORMULA  = "bitmap(sst,lsmbitmap)"
+WRITE,
+  FIELDSET = sst_mask,
+  TARGET   = "sst_mask_gg.grb"
+READ,
+  SOURCE        = "sst_mask_gg.grb",
+  $geoinfo,
+  LEVTYPE       = SFC,
+  INTERPOLATION = NEAREST LSM,
+  TARGET        = "tmp.surface.sst.regular_ll.grb.masked"
+EOF
+mars maskSST.mars
+cat tmp.surface.sst.regular_ll.grb.masked >> $target
 
-mars req_${refdate}${reftime}_ana1
-mars req_${refdate}${reftime}_ana2
-mars req_${refdate}${reftime}_ana3
-rm -f req_${refdate}${reftime}_ana?
+# Soil water content
+file_swv_gg=tmp.depthBelowLandLayer.swv.reduced_gg.grb
+file_smi_ll=tmp.depthBelowLandLayer.smi.regular_ll.grb
+rm -f $file_swv_gg $file_smi_ll 
+
+for var in swvl1 swvl2 swvl3 swvl4 ; do
+  cat tmp.depthBelowLandLayer.${var}.reduced_gg.grb >> $file_swv_gg
+done
+
+compute_smi $file_swv_gg tmp.surface.slt.reduced_gg.grb $file_smi_ll
+cat $file_smi_ll >> $target
+
+# Constant fields
+target="data/ec_${refdate}${reftime}_const"
+rm -f $target
+for var in z lsm sr slt ; do
+  cat tmp.surface.${var}.regular_ll.grb >> $target
+done
+
 }
 
+retrieve_for_diss() {
+#-------------------------------------------------------------------------------
+# Retrieve from $EC_DISS fields for boundary conditions of one LEPS member.
+#
+# Use enviromnent varibles set by main program:
+# $refdate    (reftime of IFS run to be retrieved)
+# $reftime
+# $range      (forecast time required)
+# $lag        (forecast step of data to be retrieved)
+# $ENS_MEMBER (ens. member, relative to LEPS numeration)
+# $elem       (ens. member, relative to IFS numeration)
+# $disspref   (prefix for input files: ITD or ITX)
+# $geoinfo    (chiavi MARS relative al dominio dei dati IFS: AREA+GRID)
+#
+# Input: files ITD or ITX, in $EC_DISS
+#
+# Output: groups of grib files, on regular grid, in $RETRIEVE_IC_BC_DIR =
+#   $TCWORK/work/ileps_tc_2.5km/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
 
-# retrieve all fields on upper air model levels (including lnsp at a single model level)
-retrieve_ml_mars() {
+# Input files
+rt="$refdate $reftime"
+vt=$(date -d "${rt} +${range}hours" +"%%Y%%m%%d %%H")
+file_rt=$(date -d "$rt" +"%%m%%d%%H")
+file_vt=$(date -d "$vt" +"%%m%%d%%H")
 
-cat >req_ml_$RETRIEVE_STOP << FINIFINI
-RETRIEVE,
-$anfc,
-LEVTYPE=ML,
-LEVELIST=31/TO/$NLEV,
-REPRES=SH,
-DATE=$refdate,
-TIME=$reftime,
-PARAM=T/U/V/Q/CLWC/CIWC/CRWC/CSWC,
-$geoinfo,
-EXPVER=$expid,
-$marsinfo,
-TARGET="data/ec_${refdate}${reftime}_ml.[step]"
+inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001c" # constant fields
+input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"   # all other fields
 
-RETRIEVE,
-PARAM=LNSP,
-LEVELIST=1
+if [ $ENS_MEMB = 0 ] ; then
+  gc_opt="typeOfLevel=hybrid,dataType=fc"
+else
+  if [ $elem = 0 ] ; then
+    gc_opt="typeOfLevel=hybrid,dataType=cf"
+  else
+    gc_opt="typeOfLevel=hybrid,dataType=pf,perturbationNumber=$elem"
+  fi
+fi
+
+# Model levels + Z on model layer 1
+target="data/ec_${refdate}${reftime}_ml.${range}"
+rm -f $target
+grib_copy -w $gc_opt $input $target
+
+# # Constant fields
+# target="data/ec_${refdate}${reftime}_const"
+# rm -f $target
+# grib_copy -w shortName=z $inputc $target
+
+}
+
+#-------------------------------------------------------------------------------
+
+compute_smi () {
+# arguments: <ggswv file> <ggslt file> <output file>
+
+smi_equation="(swvl-0.059)/(0.242-0.059)*(slt=1)+(swvl-0.151)/(0.346-0.151)*(slt=2)+(swvl-0.133)/(0.382-0.133)*(slt=3)+(swvl-0.279)/(0.448-0.279)*(slt=4)+(swvl-0.335)/(0.541-0.335)*(slt=5)+(swvl-0.267)/(0.662-0.267)*(slt=6)+(swvl-0.151)/(0.346-0.151)*(slt=7)"
+
+tmpgrib=tmpgrib_$RETRIEVE_STOP
+rm -f $tmpgrib
+# retrieve slt
+cat >req_smicomp_$RETRIEVE_STOP << FINIFINI
+read,
+  source   = "$2",
+  param    = slt,
+  fieldset = slt
 FINIFINI
 
-mars req_ml_$RETRIEVE_STOP
-rm -f req_ml_$RETRIEVE_STOP
+# retrieve swvl and compute smi for each soil level
+for lv in $(seq 4); do
+  cat >>req_smicomp_$RETRIEVE_STOP << FINIFINI
+read,
+  source   = "$1",
+  param    = swvl$lv, fieldset = swvl
+  compute, fieldset = smi$lv,
+  formula  = "$smi_equation"
+write, 
+  fieldset = smi$lv,
+  target = "$tmpgrib"
+FINIFINI
+done
+# convert from archived (reduced) to regular grid for each soil level
+for lv in $(seq 4); do
+  cat >>req_smicomp_$RETRIEVE_STOP << FINIFINI
+read,
+  param = swvl$lv,
+  fieldset = smi$lv,
+  source = "$tmpgrib",
+  $geoinfo
+write, 
+  fieldset = smi$lv,
+  target = "$3"
+FINIFINI
+done
+
+mars req_smicomp_$RETRIEVE_STOP
+
 }
+
+#-------------------------------------------------------------------------------
+### Start of main program ###
 
 module load ecmwf-toolbox
 module load eclib
@@ -106,99 +223,75 @@ mkdir -p $RETRIEVE_IC_BC_DIR/data
 cd $RETRIEVE_IC_BC_DIR
 
 # from "cleaning_hpcf_part3.ecf":
-# CLD analysis det 00/12 (useful?)
-# CTD det 00/12
-# CTS det 06/18
-# CTX ens 00/06/12/18
+#?? CLD analysis det 00/12 (useful?)
+# ITD det 00/12
+# ITS det 06/18
+# ITX ens 00/06/12/18
 
-
+# Assign control variables that are different for DET and ENS
 if [ "$ENS_MEMB" = 0 ] ; then # deterministic
-    refdate=$DATE
-    reftime=$TIME
-    lag=0
-    marsinfo="-w typeOfLevel!=isobaricInhPa"
+  refdate=$DATE
+  reftime=$TIME
+  lag=0
+  geoinfo="AREA=$DET_AREA,GRID=$DET_GRID"
+  hincbd=$DET_HINCBD
+  if [ "$TIME" = "0000" -o "$TIME" = "1200" ]; then
+      disspref=ITD
+  else
+      disspref=ITS
+  fi
 
-    NLEV=$DET_NLEV
-    expid=$DET_EXPID
-    hincbd=$DET_HINCBD
-    if [ -z "$disspref" ]; then
-        if [ "$TIME" = "0000" -o "$TIME" = "1200" ]; then
-            disspref=CTD
-        else
-            disspref=CTS
-        fi
-    fi
-else # leps member
-    # get cluster analysis information (to be reviewed)
-    # at the moment refdate, reftime, lag, elem
-    . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
-    if [ "$elem" = 0 ]; then
-        marsinfo="-w type=cf,typeOfLevel!=isobaricInhPa"
-        marsinfo_ctrl=$marsinfo
-    else
-        marsinfo="-w type=pf,perturbationNumber=$elem,typeOfLevel!=isobaricInhPa"
-        marsinfo_ctrl="-w type=cf,typeOfLevel!=isobaricInhPa"
-    fi
-    NLEV=$EPS_NLEV
-    expid=$EPS_EXPID
-    hincbd=$EPS_HINCBD
-    disspref=CTX
+else  # leps member
+# get cluster analysis information: at the moment refdate, reftime, lag, elem
+  . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
+
+  geoinfo="AREA=$EPS_AREA,GRID=$EPS_GRID"
+  hincbd=$EPS_HINCBD
+  disspref=ITX
 fi
+
+# Retrieve IFS data from dissemination files and convert to grib2.
+# If needed, subtract $lag hours from verification time (eg. forecast at +$lag hours
+#   are written as analyisis at verification time)
 
 if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
-    if [ "$ENS_MEMB" = 0 ]; then
-        dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
-        dissdate=${dissdate_const:0:15}1 # real analysis is stored with +1'
-        grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib
-    else   
-        if [ "$lag" = 0 ]; then
-            dissdate=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
-            dissdate_const=
-        else
-            dissdate_const=${refdate:4:4}${reftime}${refdate:4:4}${reftime}
-# add lag
-            verdate=`dateincr -m $refdate$reftime (($lag * 60))`
-            dissdate=${refdate:4:4}${reftime}${verdate:4:8}
-        fi
-        grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib
-    fi
-# 20240802: in present dissemination, the file CTDmmddhh00mmddhh001 contains two copies of "soil type"
-# constatn field, with different resolutions (0.1 and 0.2).
-# It is necessary to remove the one with reduced resolution to prevent iconremap errors 
-    if [ -n "$dissdate_const" ]; then
-        grib_copy -w iDirectionIncrement=100 $EC_DISS/$disspref$dissdate_const$expid const.grib
-        cat const.grib >> tmp.grib
-    fi
+  retrieve_ana_diss
 
-# TODO here compute SMI
+  if [ "$lag" = 0 ]; then
+    grib_set -s editionNumber=2,scanningMode=0 \
+        data/ec_${refdate}${reftime}_ml.0 data/ec_${refdate}${reftime}_surf.0 \
+        data/ec_${refdate}${reftime}_const \
+        $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+  else
+    grib_set -s editionNumber=2,scanningMode=0,dataDate=$DATE,dataTime=$TIME,stepRange=0 \
+        data/ec_${refdate}${reftime}_ml.${lag} data/ec_${refdate}${reftime}_surf.${lag} \
+        data/ec_${refdate}${reftime}_const \
+        $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+  fi
+
+# multiple forecasts without analysis requested
+#   range: timerange relative to IFS reftime
+#   step:  timerange relative to Icon reftime (if lag=0, this is equal to range)
+# NB: it would be possible to add "z on model level 1" to the output:
+#   - take from file data/ec_${refdate}${reftime}_const (grib_cop -w ..)
+#   - in task remap_day, the file *.z.* would not be needed anymore
+#   - check if this is possibile in retrieve_ic_bc_day_mars (otherwise two versions of 
+#     task remap_day would be needed) 
+else 
+  for range in `seq $(($RETRIEVE_START+$hincbd+$lag)) $hincbd $(($RETRIEVE_STOP+$lag))`; do
+    step=$(($range-$lag))
+
+    retrieve_for_diss
+
     if [ "$lag" = 0 ]; then
-        mv tmp.grib $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
+      ln -s data/ec_${refdate}${reftime}_ml.${range} \
+        $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $range).grib
     else
-        grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=0 tmp.grib \
-          $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
-        rm -f tmp.grib
+      grib_set -s editionNumber=2,scanningMode=0,dataDate=$DATE,dataTime=$TIME,stepRange=$step \
+        data/ec_${refdate}${reftime}_ml.${range} \
+        $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $step).grib
     fi
-
-else # multiple forecasts without analysis requested
-    for range in `seq $(($RETRIEVE_START+$hincbd+$lag)) $hincbd $(($RETRIEVE_STOP+$lag))`; do
-        verdate=`dateincr -m $refdate$reftime $(($range * 60))`
-        dissdate=${refdate:4:4}${reftime}${verdate:4:8}
-        grib_copy $marsinfo $EC_DISS/$disspref$dissdate$expid tmp.grib.[step]
-    done
-
-    for ofile in tmp.grib.*; do
-        step=${ofile##*.}
-        if [ "$lag" = 0 ]; then
-            mv $ofile $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $step).grib
-        else
-            clepstep=$(($step-$lag))
-            grib_set -s dataDate=$DATE,dataTime=$TIME,stepRange=$clepstep \
-                     $ofile \
-                     $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $clepstep).grib
-        fi
-#       rm -f $ofile
-    done
+  done
 fi
-
 
 %include <tail.h>

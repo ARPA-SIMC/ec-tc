@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --output=icon.out
-#SBATCH --qos=tp
+#SBATCH --output=icon_mpi.out
 #SBATCH --export=ALL,STHOST
 #SBATCH --account=cosmo
+#SBATCH --qos=np
 #SBATCH --time=01:00:00
+#SBATCH --mem-bind=local
 #SBATCH --ntasks=384
 #SBATCH --cpus-per-task=1
 #SBATCH --hint=nomultithread
-#SBATCH --mem-bind=local
 
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
@@ -19,7 +19,7 @@ set -o pipefail # fail if last(rightmost) command exits with a non-zero status
 # Defines the variables that are needed for any communication with ECF
 export ECF_PORT=3141    # The server port number
 export ECF_HOST=ecflow-tc2-zcl2-001    # The host name where the server is running
-export ECF_NAME=/ileps_tc_7km/day/hour_00/iconrun/eps_member_2/icon    # The name of this current task
+export ECF_NAME=/ileps_tc_2.5km/day/hour_00/iconrun/eps_member_2/icon    # The name of this current task
 export ECF_PASS=isfFNfUU    # A unique password
 export ECF_TRYNO=7  # Current try number of the task
 export ECF_DENIED= # Optional, if set, ecflow_client exits when connection with server fails
@@ -38,7 +38,7 @@ ERROR() {
     set +e                      # Clear -e flag, so we don't fail
     wait                        # wait for background process to stop
     if [ "" = "TRUE" ]; then
-	echo --msg="Forgiving failure of /ileps_tc_7km/day/hour_00/iconrun/eps_member_2/icon"
+	echo --msg="Forgiving failure of /ileps_tc_2.5km/day/hour_00/iconrun/eps_member_2/icon"
 	echo --complete   # Notify ecFlow of a normal end
     else
 	echo --abort="trap" # Notify ecFlow that something went wrong
@@ -69,9 +69,9 @@ set -a
 ECTC_BIN=/home/zcl2/ec-tc/ecflow/ileps_timecrit/bin
 ECTC_CONF=/home/zcl2/ec-tc/ecflow/ileps_timecrit/conf
 ECTC_WORKBASE=/ec/ws1/tc/zcl2/tcwork
-ECTC_WORK=/ec/ws1/tc/zcl2/tcwork/work/ileps_tc_7km
+ECTC_WORK=/ec/ws1/tc/zcl2/tcwork/work/ileps_tc_2.5km
 
-DATE=20240721
+DATE=20240801
 TIME=0000
 RETRIEVE_START=
 RETRIEVE_STOP=
@@ -93,7 +93,7 @@ fi
 # -1 control
 # -2 loop on all members from 0 to $ENS_TOTAL_MEMB
 
-ECTC_CONFDIRLIST="$ECTC_CONF $ECTC_CONF/ileps_tc_7km"
+ECTC_CONFDIRLIST="$ECTC_CONF $ECTC_CONF/ileps_tc_2.5km"
 for dir in $ECTC_CONFDIRLIST; do
   . $dir/runconf.sh
 done
@@ -111,7 +111,7 @@ module load aec/1.0.4
 export ECCODES_DEFINITION_PATH=/perm/dwg/grib_api_def/ec-2.31.0/definitions.edzw:/perm/dwg/grib_api_def/ec-2.31.0/definitions
 export ECCODES_SAMPLES_PATH=/perm/dwgsgrib_api_def/ec-2.31.0/samples-19.1
 
-safe_rm_rf $MODEL_DIR/data
+safe_rm_rf $MODEL_DIR
 
 mkdir -p $MODEL_DIR
 mkdir -p $MODEL_DIR/data
@@ -123,11 +123,12 @@ cp $CONST_DIR/ECHAM6_CldOptProps.nc .
 cp $ECTC_CONF/map_file.ana .
 cp $ECTC_CONF/map_file.latbc .
 
+export MODEL_STOP=1
 export inidate=$(date -u --date "${DATE} ${TIME}" '+%Y-%m-%dT%H:%M:%SZ')
 export findate=$(date -u --date "${DATE} ${TIME} $MODEL_STOP hours" '+%Y-%m-%dT%H:%M:%SZ')
 
-#conf_template icon_master.namelist
-#conf_template icon.nml
+conf_template icon_master.namelist
+conf_template icon.nml
 #export UCX_LOG_LEVEL=info
 export UCX_TLS=all
 srun --cpus-per-task=$SLURM_CPUS_PER_TASK $BIN_DIR/icon.v2-6-6.intel.openmpcomesideve

@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --output /ec/ws1/tc/zcl2/home/tmp/ITX_18/mars_diss.ens.log
+#SBATCH --error /ec/ws1/tc/zcl2/home/tmp/ITX_18/mars_diss.ens.log
+#SBATCH --threads-per-core=1
+#SBATCH --export=ALL,STHOST
+#SBATCH --account=cosmo
+#SBATCH --qos=nf
+#SBATCH --time=23:00:00
+#SBATCH --ntasks=1
+
+#
+# Script to run the Mars queries that reproduce LEPS operational dissemination for ENS
+#
+
+set -x
+cd /ec/ws1/tc/zcl2/home/tmp/ITX_18
+# for query in $(seq  -f "ITX_fc.query.%03g" 6 3 144) ; do
+for query in ITX_constant.query $(ls ITX_fc.query.*) ; do
+  mars $query
+done

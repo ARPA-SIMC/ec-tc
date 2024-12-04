@@ -21,7 +21,7 @@ area=${area#*/}
 suba="$suba --ilat=${area%%%%/*}"
 area=${area#*/}
 suba="$suba --flon=${area%%%%/*}"
-disspref=CTX
+disspref=ITX
 
 for lag in ${CLA_LAG[*]}; do
     prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`

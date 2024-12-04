@@ -11,7 +11,7 @@ ECF_HOME = "$ECTC_BASE/ecflow"
 ECF_STATUS_CMD = "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%"
 ECF_KILL_CMD = "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%"
 ECF_JOB_CMD = "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%"
-ECF_TRIES = "1"
+ECF_TRIES = "2"
 ECTC_ENS_MEMB = "0"
 ECTC_BIN = "$ECTC_BASE/bin" # suite management executables (not model executables)
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
@@ -21,15 +21,15 @@ EC_DISS = "%STHOST%/tc/zcl/tcwork/lb/ecdiss" # $USER - zcl?
 
 [suiteconf]
 
-# suitestart = 2024-01-01 00:00:00Z
-suiteback = 15
-suitestop = 2035-01-01 00:00:00Z
-# suiteduration = 365
-hours = "0-18:6" # "0" to run only at 00; "0-12:12" to run only at 00 and 12
-forecastrange = 126
-subsuites = ["ana", "eps", "det"]
-pretypes = ["mars", "diss"]
+suitestart = 2023-01-01 00:00:00Z
+# suiteback = 15
+# suitestop = 2024-01-01 00:00:00Z
+suiteduration = 365
+hours = "0" # "0" to run only at 00
+forecastrange = 120
+subsuites = ["det"]
+pretypes = ["mars"]
 predefault = "mars"
 splitretrieve = true
-membrange = "0-20"
-timecrit = true
+membrange = "0"
+timecrit = false

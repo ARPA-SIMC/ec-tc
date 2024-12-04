@@ -27,6 +27,7 @@ TARGET="data/ec_${refdate}${reftime}_pert.grib"
 FINIFINI
 
 mars req_clustana_pl
+cp req_clustana_pl /ec/ws1/tc/zcl2/tcwork/tmp/ileps_query/ # debug
 #rm -f req_clustana_pl
 }
 

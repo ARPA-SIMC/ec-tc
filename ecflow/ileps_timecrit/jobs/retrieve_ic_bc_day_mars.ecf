@@ -106,8 +106,6 @@ FINIFINI
 mars req_${refdate}${reftime}_ana1
 mars req_${refdate}${reftime}_ana2
 mars req_${refdate}${reftime}_ana3
-cp req_${refdate}${reftime}_ana? sst_mask.grib /ec/ws1/tc/zcl2/tcwork/tmp/remap_debug #debug
-rm -f req_${refdate}${reftime}_ana? sst_mask.grib
 }
 
 
@@ -133,8 +131,6 @@ LEVELIST=1
 FINIFINI
 
 mars req_ml_$RETRIEVE_STOP
-cp req_ml_$RETRIEVE_STOP /ec/ws1/tc/zcl2/tcwork/tmp/remap_debug #debug
-rm -f req_ml_$RETRIEVE_STOP
 }
 
 
@@ -144,6 +140,7 @@ compute_smi () {
 smi_equation="(swvl-0.059)/(0.242-0.059)*(slt=1)+(swvl-0.151)/(0.346-0.151)*(slt=2)+(swvl-0.133)/(0.382-0.133)*(slt=3)+(swvl-0.279)/(0.448-0.279)*(slt=4)+(swvl-0.335)/(0.541-0.335)*(slt=5)+(swvl-0.267)/(0.662-0.267)*(slt=6)+(swvl-0.151)/(0.346-0.151)*(slt=7)"
 
 tmpgrib=tmpgrib_$RETRIEVE_STOP
+rm -f $tmpgrib
 # retrieve slt
 cat >req_smicomp_$RETRIEVE_STOP << FINIFINI
 read,   source   = "$2",
@@ -168,8 +165,6 @@ FINIFINI
 done
 
 mars req_smicomp_$RETRIEVE_STOP
-cp req_smicomp_$RETRIEVE_STOP /ec/ws1/tc/zcl2/tcwork/tmp/remap_debug #debug
-rm -f $tmpgrib
 
 }
 
@@ -186,8 +181,13 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     refdate=$DATE
     reftime=$TIME
     lag=0
-    marsinfo="CLASS=OD,STREAM=oper,TYPE=fc,PADDING=0"
-    marsinfo_const="CLASS=OD,STREAM=oper,TYPE=an,PADDING=0"
+    if [ $TIME = "0000" -o $TIME = "1200" ] ; then
+      marsinfo="CLASS=OD,STREAM=oper,TYPE=fc,PADDING=0"
+      marsinfo_const="CLASS=OD,STREAM=oper,TYPE=an,PADDING=0"
+    elif [ $TIME = "0600" -o $TIME = "1800" ] ; then
+      marsinfo="CLASS=OD,STREAM=scda,TYPE=fc,PADDING=0"
+      marsinfo_const="CLASS=OD,STREAM=scda,TYPE=an,PADDING=0"
+    fi
     geoinfo0="AREA=$DET_AREA,GRID=$DET_GRID"
     NLEV=$DET_NLEV
     expid=$DET_EXPID
@@ -233,11 +233,23 @@ if [ "$RETRIEVE_STOP" = 0 ]; then # only analysis requested
             $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+0000.grib
     fi
     #   rm -f data/ec_${refdate}${reftime}_*.0 # needed?
+    # Debug: save mars query for future analysis
+    debug_dir=/ec/ws1/tc/zcl2/tcwork/tmp/ileps_query/${ENS_MEMB}
+    mkdir -p $debug_dir
+    cp req_${refdate}${reftime}_ana? sst_mask.grib $debug_dir
+    cp req_ml_$RETRIEVE_STOP $debug_dir
+    cp req_smicomp_$RETRIEVE_STOP $debug_dir
 
 else # multiple forecasts without analysis requested
     marsinfo="$marsinfo,STEP=$(($RETRIEVE_START+$hincbd+$lag))/to/$(($RETRIEVE_STOP+$lag))/by/$hincbd"
     geoinfo="${geoinfo0},TRUNCATION=AUTO"
     retrieve_ml_mars
+
+    # Debug: save mars query for future analysis
+    debug_dir=/ec/ws1/tc/zcl2/tcwork/tmp/ileps_query/${ENS_MEMB}
+    mkdir -p $debug_dir
+    cp req_ml_$RETRIEVE_STOP $debug_dir
+
     for ofile in data/ec_${refdate}${reftime}_ml.*; do
         step=${ofile##*.}
         if [ "$lag" = 0 ]; then
