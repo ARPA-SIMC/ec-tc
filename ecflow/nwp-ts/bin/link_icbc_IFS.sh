@@ -1,10 +1,13 @@
 #!/bin/bash
-#set -x
+#
+# Links the IFS files extracted for LBC to another NWP-TS project
+#
 
-dest_proj=S24xicon202410
+dest_proj=S23icon202410
 src_proj=S24icon202410
+#seg_lst="2021070100 2021070600 2021071100 2021071600 2021072100 2021072600 2021073100"
 #seg_lst="2021120100 2021120600 2021121100 2021121600 2021122100 2021122600 2021123100"
-seg_lst="2021120100"
+seg_lst="2021071100"
 
 dest_root=/ec/res4/scratch/mck/nwptsH/${dest_proj}/bc_ic_00
 src_root=/ec/res4/scratch/mck/nwptsH/${src_proj}/bc_ic_00

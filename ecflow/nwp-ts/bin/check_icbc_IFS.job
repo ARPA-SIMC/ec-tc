@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Check if the verification times in IFS files extracted for LBC are correct
+#
 in_root=/ec/res4/scratch/mck/nwptsH/S24icon202410/bc_ic_00
 work_dir=/ec/res4/scratch/mck/check_icbc
 

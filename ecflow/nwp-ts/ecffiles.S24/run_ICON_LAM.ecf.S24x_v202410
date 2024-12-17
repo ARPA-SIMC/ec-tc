@@ -144,7 +144,7 @@ if [ ${day} == "01" ] ; then
 else
    lrestart=.true.
    YMD_lastRestart=$(date -d "${YMD} -${ndays_restart} day" +%%Y%%m%%d)
-   ln -sf $DATADIR/${YMD_lastRestart}${starthour}/${GRID}_DOM01_restart_atm_${YMD}T000000Z.nc ./restart_atm_DOM01.nc
+   ln -sf $DATADIR/${YMD_lastRestart}${starthour}/restart_ATMO_DOM01.nc ./
 fi
 
 # Initialization soil from ICON-EU only if first day
@@ -469,6 +469,7 @@ tune_sgsclifac   = 1.0
 &dynamics_nml
  divavg_cntrwgt = 0.50
  lcoriolis      = .true.
+ lmoist_thdyn   = .false.
 /
 &transport_nml
  ctracer_list = '12345'

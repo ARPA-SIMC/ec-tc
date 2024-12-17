@@ -58,7 +58,7 @@ else
 # Build the list of files to process
   ecffile_list=""
   day=0
-  while [ $day -le $day_req -a $day -lt 5 ] ; do
+  while [ $day -le $day_req -a $day -le 5 ] ; do
     curr_date=$(date -d "$YMD +${day}days" +%%Y%%m%%d%%H)
     ecffile_list=${ecffile_list}" ifs_oper_T${res}_${curr_date}"
     day=$(($day+1))

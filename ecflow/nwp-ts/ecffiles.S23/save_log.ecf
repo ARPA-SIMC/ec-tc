@@ -29,7 +29,7 @@ label=$VERSION
 
 BASEDIR=%BASEDIR%
 ECF_OUT=%ECF_OUT%
-log_root=${ECF_OUT}/nwptsICONx/nwp_suite_00
+log_root=${ECF_OUT}/nwptsICON23/nwp_suite_00
 
 cd $DOPOCORSA
 
@@ -84,8 +84,9 @@ DD=${YMD:6:2}
 input_dir=${RUNDIR}/${YMD}00_test_2p8
 files="${input_dir}/icon_master.namelist \
   ${input_dir}/nml.atmo.log \
-  ${input_dir}/NAMELIST_ICON-LAM_Testsuite \
+  ${input_dir}/NAMELIST_${label} \
   ${input_dir}/NAMELIST_ICON_output_atm"
+# ${input_dir}/NAMELIST_ICON-LAM_Testsuite 
 
 # List of task logfiles to archive 
 cnt=0
