@@ -9,27 +9,52 @@ retrieve_ana_diss() {
 # Special processing from gaussian grid for SST and SWV
 #
 # Use enviromnent varibles set by main program:
-# $refdate    (reftime of IFS run to be retrieved)
-# $reftime
+# $refdate    (reftime of IFS run to be retrieved: yyyymmdd) 
+# $reftime    (reftime of IFS run to be retrieved: hh00) 
 # $lag        (forecast step of data to be retrieved)
 # $ENS_MEMBER (ens. member, relative to LEPS numeration)
 # $elem       (ens. member, relative to IFS numeration)
 # $disspref   (prefix for input files: ITD or ITX)
 # $geoinfo    (chiavi MARS relative al dominio dei dati IFS: AREA+GRID)
 #
-# Input: files ITD or ITX, in $EC_DISS
+# Input: files ITD, ITS or ITX, in $EC_DISS
 #
 # Output: groups of grib files, on regular grid, in $RETRIEVE_IC_BC_DIR =
 #   $TCWORK/work/ileps_tc_2.5km/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
 
-# Input files
+# Name of input files
+# 08/01/2025
+# - Constant fields are provided only for the determinsitc runs, in a file 
+#   named as "analysis"
+# - For deterministic runs, the analysis are in a file named as "+1' forecast"
+# - Ouputs from deterministic runs are named ITS* for every starting hour, but 
+#   keep nevertheless in the script the switch ITD/ITS active
+#   (old: run starting at 00+12->ITD, 06+18->ITS)
+# - The "control" forecast (element=0) is no longer produced by ECMWF, but 
+#   keep nevertheless in the script the cf/pf switch 
+
 rt="$refdate $reftime"
 vt=$(date -d "${rt} +${lag}hours" +"%%Y%%m%%d %%H")
 file_rt=$(date -d "$rt" +"%%m%%d%%H")
 file_vt=$(date -d "$vt" +"%%m%%d%%H")
 
-inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001c" # constant fields
-input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"   # all other fields
+if [ $disspref = ITD -o  $disspref = ITS ] ; then
+  inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001"   # constant fields
+  if [ $lag = 0 ] ; then                                     # all other fields
+    input="${EC_DISS}/${disspref}${file_rt}00${file_rt}011"    
+  else
+    input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"
+  fi
+
+elif [ $disspref = ITX ] ; then
+  if [ $reftime = 0000 -o  $reftime = 1200 ] ; then
+    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"         # constant fields
+  elif [ $reftime = 0600 -o  $reftime = 1800 ] ; then
+    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"         # constant fields
+  fi
+  input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"    # all other fields
+
+fi
 
 # Split input file
 rm -f split.filt tmp.*.grb
@@ -118,8 +143,8 @@ retrieve_for_diss() {
 # Retrieve from $EC_DISS fields for boundary conditions of one LEPS member.
 #
 # Use enviromnent varibles set by main program:
-# $refdate    (reftime of IFS run to be retrieved)
-# $reftime
+# $refdate    (reftime of IFS run to be retrieved: yyyymmdd)
+# $reftime    (reftime of IFS run to be retrieved: hh00)
 # $range      (forecast time required)
 # $lag        (forecast step of data to be retrieved)
 # $ENS_MEMBER (ens. member, relative to LEPS numeration)
@@ -127,19 +152,38 @@ retrieve_for_diss() {
 # $disspref   (prefix for input files: ITD or ITX)
 # $geoinfo    (chiavi MARS relative al dominio dei dati IFS: AREA+GRID)
 #
-# Input: files ITD or ITX, in $EC_DISS
+# Input: files ITD, ITS or ITX, in $EC_DISS
 #
 # Output: groups of grib files, on regular grid, in $RETRIEVE_IC_BC_DIR =
 #   $TCWORK/work/ileps_tc_2.5km/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
 
-# Input files
+# Name of input files
+# Note Dec 2024: control forecast is no longer used, so $elem should 
+# never be "0" (the switch is maintainded for compatibility)
+# See retrieve_ana_diss{} funcition for more documentation
+
 rt="$refdate $reftime"
 vt=$(date -d "${rt} +${range}hours" +"%%Y%%m%%d %%H")
 file_rt=$(date -d "$rt" +"%%m%%d%%H")
 file_vt=$(date -d "$vt" +"%%m%%d%%H")
 
-inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001c" # constant fields
-input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"   # all other fields
+if [ $disspref = ITD -o  $disspref = ITS ] ; then
+  inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001"   # constant fields
+  if [ $range = 0 ] ; then                                   # all other fields
+    input="${EC_DISS}/${disspref}${file_rt}00${file_rt}011"    
+  else
+    input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"
+  fi
+
+elif [ $disspref = ITX ] ; then
+  if [ $reftime = 0000 -o $reftime = 1200 ] ; then                # constant fields
+    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"         
+  elif [ $reftime = 0600 -o  $reftime = 1800 ] ; then
+    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"
+  fi
+  input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"    # all other fields
+
+fi
 
 if [ $ENS_MEMB = 0 ] ; then
   gc_opt="typeOfLevel=hybrid,dataType=fc"
@@ -222,9 +266,7 @@ mkdir -p $RETRIEVE_IC_BC_DIR
 mkdir -p $RETRIEVE_IC_BC_DIR/data
 cd $RETRIEVE_IC_BC_DIR
 
-# from "cleaning_hpcf_part3.ecf":
-#?? CLD analysis det 00/12 (useful?)
-# ITD det 00/12
+# ITS det 00/12
 # ITS det 06/18
 # ITX ens 00/06/12/18
 
@@ -236,13 +278,13 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
   geoinfo="AREA=$DET_AREA,GRID=$DET_GRID"
   hincbd=$DET_HINCBD
   if [ "$TIME" = "0000" -o "$TIME" = "1200" ]; then
-      disspref=ITD
+      disspref=ITS
   else
       disspref=ITS
   fi
 
 else  # leps member
-# get cluster analysis information: at the moment refdate, reftime, lag, elem
+# get cluster analysis information: at the moment refdate (YYYYMMDD), reftime HH00), lag, elem
   . $CLUST_ANA_DIR/data/clust_ana_result_$DATE$TIME.$ENS_MEMB.sh
 
   geoinfo="AREA=$EPS_AREA,GRID=$EPS_GRID"
@@ -284,7 +326,7 @@ else
     retrieve_for_diss
 
     if [ "$lag" = 0 ]; then
-      ln -s data/ec_${refdate}${reftime}_ml.${range} \
+      cp data/ec_${refdate}${reftime}_ml.${range} \
         $RETRIEVE_IC_BC_DIR_COMMON/data/ec_${DATE}${TIME}+$(printf "%%04d" $range).grib
     else
       grib_set -s editionNumber=2,scanningMode=0,dataDate=$DATE,dataTime=$TIME,stepRange=$step \

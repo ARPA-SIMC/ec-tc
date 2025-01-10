@@ -3,5 +3,4 @@
 \#*\#
 *.o
 *.mod
-cleps_cluster_analysis
 .singularity

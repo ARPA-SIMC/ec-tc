@@ -1,0 +1,15 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog.h>
+
+out_dir=$PREOPE_OUT/log
+mkdir -p $out_dir
+out_file=ileps.${DATE}${TIME}.tar.gz
+
+t2=${TIME:0:2}
+cd ${ECTC_LOG}/hour_${t2}
+flist=$(find ./ -name '*.?')
+
+tar -czf ${out_dir}/${out_file} $flist
+
+%include <tail.h>

@@ -1,0 +1,26 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog.h>
+
+mkdir -p $ARCHIVE_DIR
+cd $ARCHIVE_DIR
+
+# archive on local dir
+out_dir=$PREOPE_OUT/arc/${DATE}${TIME}
+mkdir -p $out_dir
+for var in T_2M TD_2M T_G TOT_PREC U_10M V_10M VMAX_10M PMSL ALHFL_S ASHFL_S ASOB_S ATHB_S CLCT Plevs ; do
+  cp $POST_DIR/${DATE}${TIME}.??.${var}.grib $out_dir
+done
+
+# archive on ecfs
+out_edir="ec:/zcl2/ileps_preope/${DATE}${TIME}"
+emkdir $out_edir
+for var in T_2M TD_2M T_G TOT_PREC U_10M V_10M VMAX_10M PMSL ALHFL_S ASHFL_S ASOB_S ATHB_S CLCT Plevs ; do
+  tar -cf ileps.${DATE}${TIME}.${var}.tar $POST_DIR/${DATE}${TIME}.??.${var}.grib
+  ecp ileps.${DATE}${TIME}.${var}.tar $out_edir
+  if [ $? -eq 0 ] ; then
+    rm ileps.${DATE}${TIME}.${var}.tar
+  fi
+done
+
+%include <tail.h>

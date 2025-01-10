@@ -1,6 +1,60 @@
 %include <sched_prolog.h>
 %include <sched_serial.h>
 %include <script_prolog.h>
+%include <mod_icon.h>
 
+# This task retrievs from DWD ftp server the initial conditions Icon-EU
+# to provide soil analysis for Icon-LEPS
+# Icon-EU analysis are presently available only at 00 and 12: if Icon-LEPS
+# runs at other times (06,18), take the last available analysis
+
+# Create working dir
+safe_rm_rf $ICONSOIL_DIR
+mkdir -p $ICONSOIL_DIR
+mkdir -p $ICONSOIL_DIR/data
+cd $ICONSOIL_DIR
+
+# Icon-EU grid
+ln -s ${CONST_DIR}/icon-eu/icon_grid_0027_R03B08_N02.nc .
+
+# Get ICON-EU analysis from DWD
+cp ${PRIVATE}/credentials_sma.netrc  ~/.netrc
+chmod 600 ~/.netrc
+
+# Patch (08/12/2025)
+# Input data from DWD are incomplete:
+# - they are only provided forruns starting at 00 and 12 
+#   (take data from the previous run: tret = "time of reference time to process))
+# - some fields are missing: ALB_SEAICE FR_ICE HSNOW_MAX SNOAG SMI EVAP_PL
+#   (build "constant zero" grib for the "FR_ICE" filed, that is mandatory)
+#   (According to DWD documentation, FR_ICE is produced only at 00Z)
+
+# Select input run
+t2=${TIME:0:2}
+tret=$(( ($t2/12)*12 ))
+if [ $tret -lt 10 ] ; then
+  tret2="0"$tret
+else
+  tret2=$tret
+fi
+icon_file="icon-eu_to_cleps_${DATE}${tret2}.grb2"
+echo "Retrieve $icon_file "date
+curl -n -O https://data.dwd.de/data/${icon_file}
+echo "Retrieve complete "date
+
+/bin/rm -f ~/.netrc
+
+# Get soil fileds form ICON-EU analysis 
+# grib_copy -w shortName=W_SO/T_SO/T_G/T_ICE/H_ICE/ALB_SEAICE/QV_S/FR_ICE/W_I/HSNOW_MAX/SNOAG/T_SO/SMI/EVAP_PL/T_SNOW/W_SNOW/RHO_SNOW/H_SNOW/FRESHSNW/Z0/P icon-eu_to_cleps_2025010412.grb2 icon-eu_soil.grb2
+grib_copy -w shortName=W_SO/T_SO/T_G/T_ICE/H_ICE/ALB_SEAICE/QV_S/FR_ICE/W_I/HSNOW_MAX/SNOAG/T_SO/SMI/EVAP_PL/T_SNOW/W_SNOW/RHO_SNOW/H_SNOW/FRESHSNW/Z0 $icon_file icon-eu_soil.grb2.org
+
+# Patch: create a "constant zero" field for FR_ICE (Sea Ice Cover)
+rm -f template.grb2 FR_ICE.grb2
+grib_copy -w shortName=Z0 icon-eu_soil.grb2.org template.grb2
+grib_set -s discipline=10,parameterCategory=2,parameterNumber=0 -d 0. template.grb2 FR_ICE.grb2
+cat FR_ICE.grb2 >> icon-eu_soil.grb2.org
+
+# Set reference time to Icon-LEPS value
+grib_set -s hour=$t2 icon-eu_soil.grb2.org icon-eu_soil.grb2 
 
 %include <tail.h>

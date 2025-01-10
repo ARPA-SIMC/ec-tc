@@ -1,6 +1,0 @@
-%include <sched_prolog.h>
-%include <sched_serial.h>
-%include <script_prolog.h>
-
-
-%include <tail.h>

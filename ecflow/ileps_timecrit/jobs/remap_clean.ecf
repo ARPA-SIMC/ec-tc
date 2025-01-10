@@ -1,0 +1,14 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog.h>
+
+# Purge the directory $TCWORK/work/ileps_tc_2.5km/remap.$m/data ($REMAP_DIR)
+# Each instance of task remap_day write one file in this directory, and files
+# from successive forecasts would accumulate.
+# To halp debug in case of problems, files are deleted here (eg. just before being
+# re-created) and not at the end of the run,
+
+safe_rm_rf $REMAP_DIR/data
+mkdir -p $REMAP_DIR/data
+
+%include <tail.h>

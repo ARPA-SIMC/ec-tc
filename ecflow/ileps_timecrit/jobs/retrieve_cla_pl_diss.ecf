@@ -11,6 +11,7 @@ safe_rm_rf $RETRIEVE_CLA_DIR
 mkdir -p $RETRIEVE_CLA_DIR
 mkdir -p $RETRIEVE_CLA_DIR/data
 cd $RETRIEVE_CLA_DIR
+rm -f libsim.log
 
 # convert syntax from mars to libsim (python .split()) 60.0/-10.0/30.0/30.0
 area=$CLA_AREA
@@ -21,32 +22,52 @@ area=${area#*/}
 suba="$suba --ilat=${area%%%%/*}"
 area=${area#*/}
 suba="$suba --flon=${area%%%%/*}"
-disspref=ITX
 
 for lag in ${CLA_LAG[*]}; do
     prevdate=`dateincr -m $DATE$TIME -$(($lag * 60))`
     filedate=${prevdate:0:12}
     dissrefdate=${prevdate:4:8}
+    dissrefhh=${prevdate:8:2}
     steps=
     for st in ${CLA_STEP[*]}; do
         verdate=`dateincr -m $prevdate $(($st * 60))`
         dissverdate=${verdate:4:8}
-        grib_copy -w typeOfLevel=isobaricInhPa,type=cf,level=850/700/500 \
-          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID data/tmp.grib
-        cat data/tmp.grib >> data/ec_${filedate}_ctrl_full.grib
+
+#       Deterministic	
+        if [ $dissrefhh = "00" -o $dissrefhh = "12" ] ; then
+          disspref=ITS
+        elif  [ $dissrefhh = "06" -o $dissrefhh = "18" ] ; then
+          disspref=ITS
+        fi
+        grib_copy -w typeOfLevel=isobaricInhPa,type=fc,level=850/700/500 \
+           $EC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
+        cat data/tmp.grib >> data/ec_${filedate}_det_full.grib
         rm -f data/tmp.grib
 
+#       Control run
+#       disspref=ITX
+#       grib_copy -w typeOfLevel=isobaricInhPa,type=cf,level=850/700/500 \
+#         $EC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
+#       cat data/tmp.grib >> data/ec_${filedate}_ctrl_full.grib
+#       rm -f data/tmp.grib
+
+#       Ensemble members
+        disspref=ITX
         grib_copy -w typeOfLevel=isobaricInhPa,type=pf,level=850/700/500 \
-          $EC_DISS/$disspref$dissrefdate$dissverdate$CLA_EXPID data/tmp.grib
+          $EC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
         cat data/tmp.grib >> data/ec_${filedate}_pert_full.grib
         rm -f data/tmp.grib
+
     done
     $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
-      --trans-type=zoom --sub-type=coord data/ec_${filedate}_ctrl_full.grib \
-      data/ec_${filedate}_ctrl.grib
+       --trans-type=zoom --sub-type=coord data/ec_${filedate}_det_full.grib \
+       data/ec_${filedate}_det.grib >> libsim.log
+#   $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
+#     --trans-type=zoom --sub-type=coord data/ec_${filedate}_ctrl_full.grib \
+#     data/ec_${filedate}_ctrl.grib >> libsim.log
     $SIMC_TOOLS vg6d_transform --trans-mode=s $suba \
       --trans-type=zoom --sub-type=coord data/ec_${filedate}_pert_full.grib \
-      data/ec_${filedate}_pert.grib
+      data/ec_${filedate}_pert.grib >> libsim.log
     rm -f data/ec_${filedate}_ctrl_full.grib data/ec_${filedate}_pert_full.grib
 done
 

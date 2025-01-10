@@ -17,7 +17,8 @@ ECTC_BIN = "$ECTC_BASE/bin" # suite management executables (not model executable
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
 ECTC_WORKBASE = "%STHOST%/tc/$USER/tcwork"
 ECTC_WORK = "%STHOST%/tc/$USER/tcwork/work/%SUITE%"
-EC_DISS = "%STHOST%/tc/zcl/tcwork/lb/ecdiss" # $USER - zcl?
+ECTC_LOG = "$ECTC_BASE/ecflow/ileps_tc_2.5km/day/"  # root dir of ecflow lof files
+EC_DISS = "%STHOST%/tc/zcl/tcwork/ecdiss_icon" # $USER - zcl?
 
 [suiteconf]
 
@@ -27,9 +28,10 @@ suitestop = 2035-01-01 00:00:00Z
 # suiteduration = 365
 hours = "0-18:6" # "0" to run only at 00; "0-12:12" to run only at 00 and 12
 forecastrange = 126
+iconsoil = "ICON-EU"
 subsuites = ["ana", "eps", "det"]
 pretypes = ["mars", "diss"]
-predefault = "mars"
+predefault = "diss"
 splitretrieve = true
 membrange = "0-20"
 timecrit = true

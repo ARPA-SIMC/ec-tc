@@ -1,0 +1,46 @@
+%include <sched_prolog.h>
+%include <sched_parallel_remap.h>
+%include <script_prolog.h>
+%include <mod_icon.h>
+
+cd $ICONSOIL_DIR
+
+ln -sf $MODEL_GRID .
+rm -f NAMELIST_ICONREMAP_FIELDS NAMELIST_ICONREMAP
+
+# Full list (form NWP-TS)
+# field_lst="W_SO T_SO T_G T_ICE H_ICE ALB_SEAICE QV_S FR_ICE W_I HSNOW_MAX SNOAG T_SO SMI EVAP_PL T_SNOW W_SNOW RHO_SNOW H_SNOW FRESHSNW Z0 P"
+
+# Reduced list (mandatory fields only)
+field_lst="W_SO T_SO T_G T_ICE H_ICE QV_S FR_ICE W_I T_SO T_SNOW W_SNOW RHO_SNOW H_SNOW FRESHSNW Z0"
+
+for field in $field_lst ; do
+cat >> NAMELIST_ICONREMAP_FIELDS << EOFA
+&input_field_nml
+ inputname      = "${field}"         
+ outputname     = "${field}"          
+ intp_method    = 3
+/
+EOFA
+done
+
+cat > NAMELIST_ICONREMAP << EOFB
+&remap_nml
+ in_grid_filename  = 'icon_grid_0027_R03B08_N02.nc'
+ in_filename       = 'icon-eu_soil.grb2'
+ in_type           = 2
+ out_grid_filename = '$MODEL_GRID'
+ out_filename      = 'data/icon-eu_soil_${DATE}${TIME}.nc'
+ out_type          = 2
+ out_filetype      = 4
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage.tmp"
+/
+EOFB
+
+srun $BIN_DIR/iconremap -v                     \
+  --remap_nml NAMELIST_ICONREMAP               \
+  --input_field_nml NAMELIST_ICONREMAP_FIELDS
+
+%include <tail.h>
+

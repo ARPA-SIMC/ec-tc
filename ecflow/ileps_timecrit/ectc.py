@@ -251,9 +251,8 @@ class TcIconSoil(TcFamily):
             fam.add_defstatus(ecflow.Defstatus("complete"))
         if "ana" in self.conf["subsuites"]: # is this trigger necessary?
             fam.add_trigger("./start_suite_ana == complete")
-        fam.add_task("setup_iconsoil")
-        fam.add_task("get_iconsoil").add_trigger("./setup_iconsoil == complete")
-        fam.add_task("iconsoil_to_leps").add_trigger("./get_iconsoil == complete")
+        fam.add_task("get_iconsoil")
+        fam.add_task("remap_iconsoil").add_trigger("get_iconsoil == complete")
 
 # Add a run family for every ensemble member
 class TcRun(TcFamily):
@@ -268,17 +267,37 @@ class TcRun(TcFamily):
             trig_day = ""
             for pre in self.conf["pretypes"]: # mars, diss
                 trig = expr_and(trig, f"../../pre_{pre}/retrieve_ic_bc/{fname} == complete")
-                trig_day = expr_and(trig_day, f"../../../../pre_{pre}/retrieve_ic_bc/{fname} == complete")
+                trig_day = expr_and(trig_day, f"../../../pre_{pre}/retrieve_ic_bc/{fname} == complete")
 
             rmd=run.add_family("remap_days")
-            rmd.add_family("remap_ana").add_task("remap_day").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0").add_trigger(trig_day)
+            rmd.add_task("remap_clean").add_trigger(trig_day)
+            rmd.add_family("remap_ana").add_task("remap_day").add_variable("RETRIEVE_START", "0").add_variable("RETRIEVE_STOP", "0").add_trigger("../remap_clean == complete")
             nh = self.conf["forecastrange"]
             for d in range(math.ceil(nh/24)):
-                rmd.add_family(f"remap_day_{d}").add_task("remap_day").add_variable("RETRIEVE_START", f"{d*24}").add_variable("RETRIEVE_STOP", f"{min((d+1)*24, nh)}").add_trigger(trig_day)
+                rmd.add_family(f"remap_day_{d}").add_task("remap_day").add_variable("RETRIEVE_START", f"{d*24}").add_variable("RETRIEVE_STOP", f"{min((d+1)*24, nh)}").add_trigger("../remap_clean == complete")
 
             run.add_task("remap").add_trigger(trig).add_defstatus(ecflow.Defstatus("complete"))
             run.add_task("icon").add_trigger("./remap == complete && ./remap_days == complete && ../../iconsoil == complete")
 
+# Add a family for post-processing
+class TcPost(TcFamily):
+    def add_to(self, node):
+        fam = node.add_family("post").add_trigger("iconrun == complete") 
+        fam.add_task("post_proc")
+
+# Add a family for data dissemination
+class TcSend(TcFamily):
+    def add_to(self, node):
+        fam = node.add_family("send").add_trigger("post == complete") 
+        fam.add_task("send_to_efas")
+        
+# Add a family for archiving LEPS ouputs
+class TcArchive(TcFamily):
+    def add_to(self, node):
+        fam = node.add_family("archive").add_trigger("send == complete") 
+        fam.add_task("archive_data")
+        fam.add_task("archive_log")
+        
 # Add a family for regribbing for cluster analysis and writing to fdb for each member
 class TcRegribFdb(TcFamily):
     def add_to(self, node):
@@ -298,6 +317,7 @@ class TcRegribFdb(TcFamily):
             raf.add_task("surf_to_fdb").add_trigger("surf_regrib == complete")
 
 
+            
 if __name__ == '__main__':
     interactive = True
     suitename = sys.argv[1]
@@ -333,7 +353,10 @@ if __name__ == '__main__':
         TcIconSoil(conft).add_to(timeloop)
         TcPre(conft).add_to(timeloop)
         TcRun(conft).add_to(timeloop)
-        TcRegribFdb(conft).add_to(timeloop)
+#       TcRegribFdb(conft).add_to(timeloop)
+        TcPost(conft).add_to(timeloop)
+        TcSend(conft).add_to(timeloop)
+        TcArchive(conft).add_to(timeloop)
     # add anything to be added outside the time loop .add_to(ileps.suite)
     # check the suite (syntax, triggers, jobs)
     if "mars" in conf.get("pretypes", []) and conf.get("splitretrieve", False):

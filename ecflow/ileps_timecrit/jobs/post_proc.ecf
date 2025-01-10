@@ -1,0 +1,28 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog.h>
+%include <mod_icon.h>
+
+safe_rm_rf $POST_DIR
+mkdir -p $POST_DIR
+cd $POST_DIR
+
+for member in $(seq 0 $ENS_TOTAL_MEMB) ; do
+  mm=$(printf "%%02d" $member)
+  in_dir=$ECTC_WORK/icon.$member/data
+  in_lst=$(ls ${in_dir}/icon_${DATE}${TIME}00_surf_all2.5km_+*.grb)
+
+# Process surface data: re-arrange to one file per parameter
+  rm -f surf.filt
+  cat << EOF > surf.filt
+    write "${DATE}${TIME}.${mm}.[shortName].grib";
+EOF
+  grib_filter surf.filt ${in_lst} 
+
+# Process Plev data: append in a single file
+  rm -f ${DATE}${TIME}.${mm}.Plevs.grib
+  cat ${in_dir}/icon_${DATE}${TIME}00_plev_all5km_+*.grb >> ${DATE}${TIME}.${mm}.Plevs.grib
+
+done
+
+%include <tail.h>

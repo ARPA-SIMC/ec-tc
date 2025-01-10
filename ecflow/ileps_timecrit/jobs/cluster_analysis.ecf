@@ -35,7 +35,6 @@ for lag in ${CLA_LAG[*]}; do
     cat >>cluster_analysis.naml <<EOF
 &ensemble
  reftime = '$prevdate',
- input_ctrl = '$RETRIEVE_CLA_DIR/data/ec_${refdate}${reftime}_ctrl.grib',
  input_pert = '$RETRIEVE_CLA_DIR/data/ec_${refdate}${reftime}_pert.grib',
  steps = $steps
  lag = $lag,

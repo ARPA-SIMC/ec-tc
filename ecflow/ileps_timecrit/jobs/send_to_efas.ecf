@@ -1,0 +1,26 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog.h>
+%include <mod_icon.h>
+
+mkdir -p $SEND_DIR
+cd $SEND_DIR
+
+lst=$(seq 0 360 7560) 
+tr_lst=$(echo $lst|sed s'/ /\//'g)
+
+out_dir=${PREOPE_OUT}/efas/${DATE}${TIME}
+mkdir -p $out_dir
+
+for member in $(seq 1 $ENS_TOTAL_MEMB) ; do
+  mm=$(printf "%%02d" $member)
+  out_file=${DATE}${TIME}_${member}.grb
+
+  rm -f out?.grb ${out_dir}/{$out_file}
+  grib_copy -w lengthOfTimeRange=$tr_lst ${POST_DIR}/${DATE}${TIME}.${mm}.TOT_PREC.grib out1.grb
+  grib_copy -w lengthOfTimeRange=$tr_lst ${POST_DIR}/${DATE}${TIME}.${mm}.ALHFL_S.grib out2.grb
+  grib_copy -w forecastTime=$tr_lst ${POST_DIR}/${DATE}${TIME}.${mm}.T_2M.grib out3.grb
+  cat out1.grb out2.grb out3.grb >> ${out_dir}/${out_file}
+
+done
+%include <tail.h>
