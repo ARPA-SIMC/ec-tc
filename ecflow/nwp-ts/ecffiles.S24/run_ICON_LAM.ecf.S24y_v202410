@@ -525,7 +525,7 @@ EOFB
 
 if [ $top_nud = "ON" ] ; then
   cat >> ${atmo_namelist} << EOFC
-&nudging_nml
+&nudging_ml
  nudge_type=1
 /
 EOFC
