@@ -1,0 +1,85 @@
+ ! Version 2.0
+ !===================
+ ! general parameters
+ !===================
+ &run
+   method         = 'MEC',             ! Model Equivalent Calculator
+   model          = 'ICON',           ! forecast model
+   data           = '../input',        ! input constant data from working directory
+   input          = '../input',              ! input             data path
+   obsinput       = '../input',              ! observation input data path
+   output         = '../output',             ! output            data to   working directory
+   aux            = '../output',             ! output auxiliary data to working directory
+   yyyymmddhh_ana = @YMD@@hh@,              ! analysis           date
+   yyyymmddhh_ref = ,            ! forecast reference date
+   fg_file        = '@ECTC_WORK@/mec.@block@/input/@ileps_fgfile@',
+   fc_hours       = 1,
+   read_fields    = "t u v q pf ps t2m td2m clct clcl clcm clch ceiling vis u_10m_av v_10m_av u_10m v_10m h_snow",
+   opt_fields     = "clct clcl clcm clch ceiling vis u_10m_av v_10m_av u_10m v_10m h_snow",         ! may be not present
+   urun_fields    = '',        ! not present in analysis
+   invar_det      = '@MODEL_INVAR@',   ! optional: file with invariant fields
+   grid_file      = '@MODEL_GRID@',
+   chk_icon_grid  = 1,      ! check neighbour references  0/1=off/on
+   npe_read_obs   = 100000,               ! read observations from all PEs
+   oldanerr_file  = '/none/',              ! analysis error input file name
+   io_max_scatter = 0 ,                    ! MPI scatter buffer size (0=minimum) (new in dace 2.09)
+   cosmo_refatm   = 1,           ! reference atmosphere to be used for COSMO:1or2
+   cosmo_ivctype  = 0,            ! vertical coordinate type to be used for COSMO:1to4
+   grib_library   = 2,                    ! use GRIB API
+   grib_edition   = 2
+ /
+ !====================
+ ! Ensemble parameters
+ !====================
+ &ENKF
+  k_enkf  = @nens@,                       ! ensemble size
+  det_run = 0,                      ! process deterministic run
+  invar_ens= '@MODEL_INVAR@',
+  grid_file= '@MODEL_GRID@'            ! ICON grid meta data
+ /
+ !================================
+ ! Verification related parameters
+ !================================
+ &veri_obs
+! obstypes      = "TEMP SYNOP",
+  prefix_in     = 'ekf',
+  prefix_out    = 'vep',
+  rm_old        = 2,                 ! overwrite entries in verification file ?
+  fc_times      = @range_list@,
+  fc_file       = 'icon__FCR_TIME_0000_mlevSurf_unstr_+DDVVMMSS.grb',             ! template for forecast file name
+  an_file       = '',             ! template for analysis file name
+  time_range    = 1,
+!  tinc_fields   = 100,          ! time increments of model fields (hhmm)
+  tinc_fields   = 0,            ! time increments of model fields (hhmm)
+  ekf_concat    = T,
+  ekf_offset    = 0
+  eps_offset    = 0, 
+ /
+ 
+ !===============================
+ ! observation related parameters
+ !===============================
+  &observations
+   !---------------------------------------------------
+   ! read from CDFIN files (if not set use mon/cof/ekf)
+   !---------------------------------------------------
+   read_cdfin   = T,    ! (F) read COSMO  CDFIN files
+ /
+
+ &report
+  time_e =    1,                      ! (hhmm, exclusive)
+  time_b = -100                  ! (hhmm, inclusive)
+ /
+
+ &cosmo_obs
+   verification_start =   -180 ! (min, inclusive)
+   altopsu(1)         =   5000.         ! max height for single level wind observations
+   zlimv10(1)         =    70.          ! max value for sso-stdh
+   doromx(1)          =   100.          ! max dist. between station-height/model orography
+   rhtsat(1)          =     1           ! rel. humidity threshold above which the obs greater set to saturation
+!  For the verification of observations on towers
+   icdt_tws           =     2           ! mode for obs/code type of tower surface-level reports
+   ytwex        =  'HEL', 'HPB'   ! tower exception levels: station ID's
+   htwex        =    60.,   93.   ! tower exception levels: heights
+   ivtwex       =     1 ,    1    ! tower exception levels: variables
+ /

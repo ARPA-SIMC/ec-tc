@@ -1,6 +1,6 @@
 %include <sched_prolog.h>
 %include <sched_serial_mem.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 
 # retrieve initial surface/soil fields, mostly on target grid,
 # retrieve also soil moisture and soil type on global reduced Gaussian

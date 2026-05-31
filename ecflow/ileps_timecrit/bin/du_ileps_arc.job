@@ -1,0 +1,94 @@
+#!/bin/bash
+#SBATCH --output ./arc_grib_count.log
+#SBATCH --error ./arc_grib_count.log
+#SBATCH --threads-per-core=1
+#SBATCH --export=ALL,STHOST
+#SBATCH --account=cosmo
+#SBATCH --qos=nf
+#SBATCH --time=23:00:00
+#SBATCH --ntasks=1
+
+#
+# Script to count the n.er of grib messages in "proc_ff" LEPS archives
+#
+
+# set -x
+
+module load ecmwf-toolbox
+arc_root=/ec/ws1/tc/zcl2/tcwork/arc
+work_dir=/ec/ws1/tc/zcl2/tcwork/tmp/du_ileps_arc
+cd $work_dir
+
+date1=20250614
+ndays=61
+
+sources="p e d s" # (p)roc_ff, (e)fas, (d)wd, (s)urf
+
+for src in $sources ; do
+echo "## processing source "$src
+
+out_file=du_ileps_arc.dat.${src}
+rm -f $out_file
+
+if [ $src = "p" ] ; then
+  arc_dir=${arc_root}/proc_ff
+  mem0=0
+  lgrb="f"
+elif [ $src = "e" ] ; then
+  arc_dir=${arc_root}/output/EFAS
+  mem0=1
+  lgrb="t"
+elif [ $src = "d" ] ; then
+  arc_dir=${arc_root}/output/DWD
+  mem0=1
+  lgrb="t"
+elif [ $src = "s" ] ; then
+  arc_dir=${arc_root}/output/surf
+  mem0=0
+  lgrb="t"
+fi
+
+cnt=0
+smx=0
+smn=999999999
+while [ $cnt -lt $ndays ] ; do
+  datac=$(date -d "$date1 + ${cnt}day" +%Y%m%d)
+  for mem in $(seq $mem0 20) ; do
+    mem2=$(printf "%02d" $mem) 
+    echo "Processing $src $datac $mem"
+
+    if [ $src = "p" ] ; then
+      in_dir=${arc_dir}/${datac}1800/mem_${mem}
+      in_files='icon_*mlevSurf_unstr_*.grb'
+    elif [ $src = "e" ] ; then
+      in_dir=${arc_dir}/${datac}1800
+      in_files=${datac}1800_${mem}.grb
+    elif [ $src = "d" ] ; then
+      in_dir=${arc_dir}/${datac}1800
+      in_files=${datac}1800_${mem}.grb
+    elif [ $src = "s" ] ; then
+      in_dir=${arc_dir}/${datac}1800
+      in_files=${datac}1800.${mem2}'.*.grib'
+    fi
+
+    nf=$(ls -1 ${in_dir}/${in_files} | wc -l)
+    siz=$(du -c ${in_dir}/${in_files} | tail -n 1 | awk '{print $1}')
+    if [ $siz -gt $smx ] ; then
+      smx=$siz
+    fi
+    if [ $siz -lt $smn ] ; then
+      smn=$siz
+    fi
+    if [ $lgrb = "t" ] ; then
+      ng=$(grib_count ${in_dir}/${in_files})
+      echo "$datac,$mem,$nf,$ng,$siz" >> $out_file
+    else
+      echo "$datac,$mem,$nf,$siz" >> $out_file
+    fi
+  done
+  cnt=$(($cnt+1))
+done
+echo "Size min: "$smn >> $out_file
+echo "Size max: "$smx >> $out_file
+
+done

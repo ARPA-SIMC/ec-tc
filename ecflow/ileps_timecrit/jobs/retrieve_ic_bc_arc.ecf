@@ -1,0 +1,24 @@
+%include <sched_prolog.h>
+%include <sched_serial_mem.h>
+%include <script_prolog_leps.h>
+
+# Get forecast range (select between variables $MODEL_STOP_00, ..)
+T2=${TIME:0:2}
+eval MODEL_STOP=\$MODEL_STOP_$T2
+
+# Get step of BC
+if [ "$ENS_MEMB" = 0 ] ; then # deterministic
+    hincbd=$DET_HINCBD
+else                          # ens member or control
+    hincbd=$EPS_HINCBD
+fi
+
+# Retrieve files from archive dir.
+source_dir=${ECTC_ARC}/input/IFS/${DATE}${TIME}/mem_${ENS_MEMB}
+target_dir=$RETRIEVE_IC_BC_DIR_COMMON/data/
+mkdir -p $target_dir
+for range in $(seq -f "%%04g" 0 $hincbd $MODEL_STOP) ; do
+  rsync -av ${source_dir}/ec_${DATE}${TIME}+$range.grib $target_dir
+done
+
+%include <tail.h>

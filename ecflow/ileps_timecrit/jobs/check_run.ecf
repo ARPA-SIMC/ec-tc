@@ -1,0 +1,44 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <auto/head.h>
+
+set -x
+
+ECF_DATE=%ECF_DATE%
+ECF_TIME=%ECF_TIME%
+YMD=%YMD%
+HH=%HH%
+
+echo "In check_run"
+echo "ECF date: "$ECF_DATE" "$ECF_TIME
+
+echo "System date: "$(date)
+echo "Reftime YMD HH: "$YMD" "$HH
+
+echo "Check time"
+today=$(date -u +%%Y%%m%%d)
+# last_date=$(date -d "$today -5day" +%%Y%%m%%d)
+last_date=20250502
+if [ $YMD -le $last_date ] ; then
+  time_check="T"
+else
+  time_check="F"
+fi
+
+echo "Check dati LEPS"
+leps_check="T"
+
+if [ $time_check = "T" ] ; then
+  if [ $leps_check = "T" ] ; then
+    echo "Time & Leps checks ok "$(date)
+  else
+    echo "Time check ok, Leps check fail "$(date)
+    ecflow_client --event=leps_missing_${HH}    # skip proc (error)
+  fi
+  ecflow_client --event=time_ok_${HH}
+  sleep 30
+else                                                # too early (requeue)
+  echo "Time check fail "$(date)
+fi
+
+%include <tail.h>

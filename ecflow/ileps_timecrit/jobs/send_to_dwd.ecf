@@ -1,0 +1,31 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog_leps.h>
+%include <mod_icon.h>
+
+mkdir -p $SEND_DIR
+cd $SEND_DIR
+
+# List of required timeranges
+lst=$(seq 0 180 7560) 
+tr_lst=$(echo $lst|sed s'/ /\//'g)
+
+out_dir=${ECTC_ARC}/output/DWD/${DATE}${TIME}
+mkdir -p $out_dir
+
+for member in $(seq 1 $NLEPSMEMB) ; do
+  mm=$(printf "%%02d" $member) 
+  out_file=${DATE}${TIME}_${member}.grb
+
+  rm -f dwd_*.grb ${out_dir}/{$out_file}
+  for var in TOT_PREC ASWDIFD_S ASWDIR_S ; do
+    grib_copy -w lengthOfTimeRange=$tr_lst ${POST_DIR}/${DATE}${TIME}.${mm}.${var}.grib dwd_${var}.grb
+  done
+  for var in PMSL U_10M V_10M TD_2M T_2M W_SNOW; do
+    grib_copy -w forecastTime=$tr_lst ${POST_DIR}/${DATE}${TIME}.${mm}.${var}.grib dwd_${var}.grb
+  done
+
+  cat dwd_*.grb >> ${out_dir}/${out_file}
+
+done
+%include <tail.h>

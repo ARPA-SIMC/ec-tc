@@ -1,0 +1,77 @@
+%include <sched_prolog.h>
+%include <sched_serial_long.h>
+%include <script_prolog_ver.h>
+#
+# Mars extraction of all observations availble for one day of LEPS verification
+# Process 24 hourly timestapms, from 00 to 23 of the required day
+# For every timestamp, write NetCDF files with observations of the previous two hours 
+# (one file for each observation type).
+#
+
+set -x
+
+echo "In v_get_obs_mars"
+ECTC_ARC=%ECTC_ARC%
+ECTC_WORK=%ECTC_WORK%
+
+mode=%mode%
+if [ $mode = "cron" ] ; then
+  YMD=$(ecflow_client --query meter /ileps_ver_2.5km/day/v_start:YMDc)
+elif [ $mode = "free" ] ; then
+  echo "stride "$stride" block "$block
+  YMD0=%YMDf%
+  YMD=$(date -ud "${YMD0} + ${block}day" +%%Y%%m%%d )
+fi
+echo "Processing verification times for day: "$YMD
+echo "ECTC_ARC "$ECTC_ARC
+
+run_dir=$ECTC_WORK/bufr.${block}
+mkdir -p $run_dir
+cd $run_dir
+rm -f obs_??Z-*.nc *converted.bufr ??.query ??.bufr ??????????.bufr obs_rejected.bufr
+
+domain=58.5/-9.7/29.5/36.2
+# domain=59.0/-10.0/29.0/37.0
+# domain=60.0/-11.0/28.0/38.0
+container=/ec/ws1/tc/zcl/tcwork/lb/bin/smnd_atos.sif
+# container=/home/ccdc/smnd_atos.sif
+
+# module load singularity
+module load apptainer
+
+rm -f ??.query ??.bufr ??_converted.bufr ??.nc
+for hh in $(seq -f "%%02g" 0 23) ; do
+
+  date_ini=$(date -ud "$YMD $hh - ${mars_time_window}minutes" +%%Y%%m%%d)
+  hh_ini=$(date -ud "$YMD $hh - ${mars_time_window}minutes" +%%H)
+
+# Build the query
+  cat > ${hh}.query <<EOF
+retrieve,
+  repres=bufr,
+  date=$date_ini,
+  time=$hh_ini,
+  range=${mars_time_window},
+  class=od,
+  type=ob,
+  obstype=LSD/SSD/VSNS/SLNS,
+  stream=da,
+  expver=0001, 
+  area=$domain,
+  target=${hh}.bufr
+END
+EOF
+
+# MARS retrieve
+  mars ${hh}.query
+
+# Convert to NetCDF
+  apptainer exec -B $TCWORK $container \
+    dbamsg convert --bufr2netcdf-categories --template=wmo --rejected=obs_rejected.bufr ${hh}.bufr > ${hh}_converted.bufr
+  apptainer exec -B $TCWORK $container \
+    bufr2netcdf -o obs_${hh}Z ${hh}_converted.bufr
+
+done
+
+%include <tail.h>
+

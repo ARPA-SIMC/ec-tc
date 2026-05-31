@@ -3,7 +3,7 @@
  generatingSubcenter         = @GRIB_SUBCENTER@
  generatingProcessIdentifier = @MODEL_FCENS_GP@
  perturbationNumber          = @ENS_MEMB@
- numberOfForecastsInEnsemble = @ENS_TOTAL_MEMB@
+ numberOfForecastsInEnsemble = @NLEPSMEMB@
  localtablesversion          = 0
  tablesversion               = 19
  preset                      = 'ensemble'

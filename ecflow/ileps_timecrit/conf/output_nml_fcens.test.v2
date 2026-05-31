@@ -1,0 +1,149 @@
+&output_nml
+ filetype                    = 2                    ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                         = 1
+ output_time_unit            = 3                    ! output in hours (3)
+ output_bounds               = 0.,@MODEL_STOP@,1.   ! start, end, increment
+ steps_per_file              = 1
+ mode                        = 1                    ! 1: forecast mode (relative t-axis),
+                                                    ! 2: climate mode (absolute t-axis)
+ include_last                = .FALSE.
+ output_filename             = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_mlevSurf_unstr"
+ filename_format             = '<output_filename>_+<ddhhmmss>'     ! file name base
+ ready_file                  = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ ml_varlist                  = 'u','v','temp','pres','qv',
+                               'u_10m','v_10m','gust10','t_2m','td_2m','TMAX_2M','TMIN_2M',
+                               'clcl','clcm','clch','clct',
+                               'asodifd_s','asodird_s','t_g','h_snow','pres_sfc','tot_prec'
+ m_levels                    = 1...65
+ output_grid                 = .FALSE.
+ stream_partitions_ml        = 1  ! needs to be adapted if num_io_procs is increased
+ remap                       = 0  ! 0 in case unstructured grid is required
+/
+
+&output_nml
+ filetype                    = 2               ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                         = 1
+ output_time_unit            = 3               ! output in hours (3)
+ output_bounds               = 0.,0.,1.        ! start, end, increment
+ steps_per_file              = 1
+ mode                        = 1               ! 1: forecast mode (relative t-axis),
+                                               ! 2: climate mode (absolute t-axis)
+ include_last                = .FALSE.
+ output_filename             = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_static_unstr"
+ filename_format             = '<output_filename>_+<ddhhmmss>'     ! file name base
+ ready_file                  = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ m_levels                    = 1...66
+ ml_varlist                  = 'z_ifc','topography_c','fr_land','sso_stdh'
+ output_grid                 = .TRUE.
+! m_levels                    = 1...65
+! ml_varlist                  = 'z_mc','topography_c','fr_land'
+! ml_varlist                  = '-grid:VLAT', '-grid:VLON', 'DEPTH_LK', 'FR_LAKE', 
+!                               'FR_LAND', 'z_ifc', 'HSURF', 'LAI', 'NDVIRATIO', 'PLCOV',
+!                               'ROOTDP', 'SOILTYP', 'SSO_STDH'
+! output_grid                 = .FALSE.
+ stream_partitions_ml        = 1  ! needs to be adapted if num_io_procs is increased
+ remap                       = 0  ! 0 in case unstructured grid is required
+/
+
+&output_nml
+! Pressure levels
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,@MODEL_STOP@,3.       ! start, end, increment
+ steps_per_file               = 1
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_plev_all5km"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ pl_varlist                   = "temp","qv","geopot","u","v"
+ p_levels                     = 50000.,70000.,85000.
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
+ remap                        = 1   !0 in case unstructured grid is required                
+ reg_lon_def                  = -10.7,0.05,37.301
+ reg_lat_def                  = 28.5,0.04,59.501
+/
+
+&output_nml
+! Surface
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,@MODEL_STOP@,1.       ! start, end, increment
+ steps_per_file               = 1
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_surf_all2km"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+! aggiunto t_seasfc da Thomas, sostituiti tqc,tqi,tqr,tqs,tqg con twater
+ ml_varlist                   = "t_2m","td_2m","u_10m","v_10m","gust10","t_g",
+                                "tot_prec","rain_con","rain_gsp","snow_con","snow_gsp","graupel_gsp","clct","w_snow",
+                                "asob_s","athb_s","pres_msl","alhfl_s","ashfl_s","asodifd_s","asodird_s"
+                                "cape_ml","lpi"
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
+ remap                        = 1   !0 in case unstructured grid is required                
+ reg_lon_def                  = -10.7,0.025,37.301
+ reg_lat_def                  = 28.5,0.02,59.501
+/
+
+&output_nml
+! Lakes
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,@MODEL_STOP@,1.       ! start, end, increment
+ steps_per_file               = 1
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_lakes_all2km"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ ml_varlist                   = "c_t_lk","h_ml_lk","t_bot_lk","t_mnw_lk","t_wml_lk","t_g"
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
+ remap                        = 1   !0 in case unstructured grid is required                
+ reg_lon_def                  = -10.7,0.025,37.301
+ reg_lat_def                  = 28.5,0.02,59.501
+/
+
+&output_nml
+! Lakes unstr.
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,@MODEL_STOP@,1.       ! start, end, increment
+ steps_per_file               = 1
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_lakes_unstr"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ ml_varlist                   = "c_t_lk","h_ml_lk","t_bot_lk","t_mnw_lk","t_wml_lk","t_g"
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased
+ remap                        = 0   !0 in case unstructured grid is required                
+/
+
+&output_nml
+! Static fields: topo+lsm
+ filetype                     = 2                        ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = 1                                                        
+ output_time_unit             = 3                        ! output in hours (3) 
+ output_bounds                = 0.,0.,1.                 ! start, end, increment        
+ steps_per_file               = 1                                                      
+ mode                         = 1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                 = .FALSE.                                                         
+ output_filename              = "@MODEL_DIR@/data/icon_@DATE@@TIME@00_static_all2km"
+ filename_format              = '<output_filename>_+<ddhhmmss>'                   ! file name base
+ ready_file                   = '@MODEL_DIR@/data/icon_@DATE@@TIME@00_+<ddhhmmss>.rf'
+ ml_varlist                   = "topography_c","fr_land"
+ output_grid                  = .FALSE.
+ stream_partitions_ml         = 1 ! needs to be adapted if num_io_procs is increased         
+ remap                        = 1   !0 in case unstructured grid is required                
+ reg_lon_def                  = -10.7,0.025,37.301
+ reg_lat_def                  = 28.5,0.02,59.501
+/

@@ -1,0 +1,12 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <auto/head.h>
+
+HH=%HH%
+
+set -x
+
+ecflow_client --event=stop_cron_${HH}
+
+%include <tail.h>
+

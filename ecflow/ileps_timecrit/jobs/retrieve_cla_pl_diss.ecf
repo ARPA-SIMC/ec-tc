@@ -1,6 +1,6 @@
 %include <sched_prolog.h>
 %include <sched_serial.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 
 module load ecmwf-toolbox
 module load singularity
@@ -40,21 +40,21 @@ for lag in ${CLA_LAG[*]}; do
           disspref=ITS
         fi
         grib_copy -w typeOfLevel=isobaricInhPa,type=fc,level=850/700/500 \
-           $EC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
+           $ECTC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
         cat data/tmp.grib >> data/ec_${filedate}_det_full.grib
         rm -f data/tmp.grib
 
 #       Control run
 #       disspref=ITX
 #       grib_copy -w typeOfLevel=isobaricInhPa,type=cf,level=850/700/500 \
-#         $EC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
+#         $ECTC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
 #       cat data/tmp.grib >> data/ec_${filedate}_ctrl_full.grib
 #       rm -f data/tmp.grib
 
 #       Ensemble members
         disspref=ITX
         grib_copy -w typeOfLevel=isobaricInhPa,type=pf,level=850/700/500 \
-          $EC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
+          $ECTC_DISS/${disspref}${dissrefdate}${dissverdate}${CLA_EXPID} data/tmp.grib
         cat data/tmp.grib >> data/ec_${filedate}_pert_full.grib
         rm -f data/tmp.grib
 

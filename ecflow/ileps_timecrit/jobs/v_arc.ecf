@@ -1,0 +1,60 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog_ver.h>
+
+## %include <auto/head.h>
+
+#
+# Archive the FF produced for a LEPS simulation
+# Delete raw LEPS outputs 
+#
+set -x
+
+echo "In varc"
+ECTC_ARC=%ECTC_ARC%
+ECTC_ARC_BCK=%ECTC_ARC_BCK%
+ECTC_WORK=%ECTC_WORK%
+
+# if [ $STHOST = /ec/ws1 ] ; then
+#   ECTC_ARC_BCK=/ec/ws2/${ECTC_ARC:7}
+# elif [ $STHOST = /ec/ws2 ] ; then
+#   ECTC_ARC_BCK=/ec/ws1/${ECTC_ARC:7}
+# else
+#   echo "STHOST undefined!"
+#   exit 2
+# fi
+
+mode=%mode%
+if [ $mode = "cron" ] ; then
+  YMD=$(ecflow_client --query meter /ileps_ver_2.5km/day/v_start:YMDc)
+elif [ $mode = "free" ] ; then
+  echo "stride "$stride" block "$block
+  YMD0=%YMDf%
+  YMD=$(date -ud "${YMD0} + ${block}day" +%%Y%%m%%d )
+fi
+
+echo "Archiving FF for day: "$YMD
+echo "ECTC_ARC "$ECTC_ARC
+cd $ECTC_ARC
+
+in_dir=${ECTC_WORK}/mec.${block}/output
+out_dir1=${ECTC_ARC}/output/ff.${obssrc}/${YMD}
+out_dir2=${ECTC_ARC_BCK}/output/ff.${obssrc}/${YMD}
+mkdir -p $out_dir1 $out_dir2
+chmod o+rx $out_dir1 $out_dir2
+
+for hh in $(seq 0 $mec_stride 23) ; do
+  hh2=$(printf "%%02d" $hh)
+  nf=$(find $in_dir -name \*.nc.${YMD}${hh2}Z | wc -l)
+  if [ $nf -eq 0 ] ; then
+    echo "Nothing to archive for "${YMD}${hh2}Z
+    continue
+  fi
+  rsync -auv ${in_dir}/*.nc.${YMD}${hh2}Z $out_dir1
+  chmod o+r ${out_dir1}/*
+  rsync -auv ${in_dir}/*.nc.${YMD}${hh2}Z $out_dir2
+  chmod o+r ${out_dir2}/*
+done
+
+%include <tail.h>
+

@@ -1,0 +1,311 @@
+%include <sched_prolog_mec.h>
+%include <sched_parallel_mec.h>
+%include <script_prolog_ver.h>
+%include <mod_mec.h>
+#------------------------------------------------------------------------------
+# Runs MEC to produce the FF for a LEPS forecast
+# Input data (model and observatons) must be already availble
+#                                          Version 4.0; last updated 30/10/2025
+#------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------
+# Function derived from lmsmr03@g100: $WORKDIR_BASE/nwpconf/bin/icon_model.sh
+# create symbolic links from files produced by bufr2netcdf to files
+# for COSMO model, arguments are:
+# $1 directory containing files
+# $2 name of basic (first) COSMO file (without .nc extension)
+# $3-$n name of each basic (first) netcdf file produced by bufr2netcdf
+# (without .nc extension)
+
+make_ncdf_link3() {
+    local dir=$1
+    local odir=$2
+    local ofile=$3
+    shift; shift; shift
+    local ext=''
+    for filetype in "$@"; do
+    for file in $dir/$filetype.nc $dir/$filetype.*.nc; do
+        if [ -s $file ]; then
+        ln -sf $file $odir/$ofile$ext.nc
+        if [ -z "$ext" ]; then
+            ext=.2
+        else
+            ext=.$((${ext#.}+1))
+        fi
+        fi
+    done
+    done
+}
+
+#------------------------------------------------------------------------------
+# Build the name of an Icon output file with a different refernce time
+# shift_icon_name ${ileps_root} ${mem} $(basename $in_file) $rt_shift
+#
+# Input
+#   mem
+#   in_file: required Icon forecast file (typically with hour of reference time = 00Z/12Z)
+#   rt_shift: hours to be subtracetd from reference time (typically "6")
+# Output
+#   org_file: "real" Icon forecast file at the required verification time
+#   zero_file: Icon forecast file at the required refernce time
+#------------------------------------------------------------------------------
+shift_icon_name() {
+  local mem=$1
+  local file=$2 
+  local shift=$3
+
+  local rtd_in=$(echo $file | cut -d _ -f 2 | awk '{print substr($1,1,8)}')   # day of reference time (YYYYMMDD)
+  local rth_in=$(echo $file | cut -d _ -f 2 | awk '{print substr($1,9,2)}')   # hour of reference time (YYYYMMDDHH)
+  local ftd_in=$(echo $file | cut -d _ -f 5 | awk '{print substr($1,3,1)}')   # days in forecast time
+  local fth_in=$(echo $file | cut -d _ -f 5 | awk '{print substr($1,4,2)}')   # hours in forecast time
+
+  local rt_out=$(date -ud "${rtd_in} $rth_in - ${shift}hours" +%%Y%%m%%d%%H)
+  local fth_tot=$((10#$fth_in+$shift))
+
+  local fth_out=$(($fth_tot%%24))
+  local fth_out2
+  if [ $fth_out -lt 10 ] ; then
+    fth_out2="0"${fth_out}
+  else
+    fth_out2=$fth_out
+  fi
+  local ftd_out=$(($ftd_in+$fth_tot/24))
+  org_file=${ECTC_ARC}/proc_ff/${rt_out}00/mem_${mem}/icon_${rt_out}0000_mlevSurf_unstr_+0${ftd_out}${fth_out2}0000.grb
+
+  local fth_shift=$(($shift%%24))
+  local fth_shift2
+  if [ $fth_shift -lt 10 ] ; then
+    fth_shift2="0"${fth_shift}
+  else
+    fth_shift2=$fth_shift
+  fi
+  local ftd_shift=$(($shift/24))
+  zero_file=${ECTC_ARC}/proc_ff/${rt_out}00/mem_${mem}/icon_${rt_out}0000_mlevSurf_unstr_+0${ftd_shift}${fth_shift2}0000.grb
+}
+
+#------------------------------------------------------------------------------
+
+set -x
+echo "In v_mec"
+
+mode=%mode%
+if [ $mode = "cron" ] ; then
+  YMD=$(ecflow_client --query meter /ileps_ver_2.5km/day/v_start:YMDc)
+elif [ $mode = "free" ] ; then
+  echo "stride "$stride" block "$block
+  YMD0=%YMDf%
+  YMD=$(date -ud "${YMD0} + ${block}day" +%%Y%%m%%d )
+fi
+
+echo "Running mec for day: "$YMD
+ECTC_ARC=%ECTC_ARC%
+ECTC_WORK=%ECTC_WORK%
+ECTC_BIN=%ECTC_BIN%
+
+# Icon timeranges for statistically processed variables
+n_statProcs=$(echo $statProc_ranges | wc -w)
+
+# List of statistically processed variables, grib_copy syntax
+spv_ecc=$(echo $statProc_vars|sed 's/\ /\//g')
+
+# First and last Icon reference time available 
+rtd=${rt_db_first:0:8}
+rth=${rt_db_first:8:2}
+rt_avail_first=$(date -ud "$rtd $rth + ${rt_shift}hours" +%%Y%%m%%d%%H)
+rtd=${rt_db_last:0:8}
+rth=${rt_db_last:8:2}
+rt_avail_last=$(date -ud "$rtd $rth + ${rt_shift}hours" +%%Y%%m%%d%%H)
+
+# Gather constant files
+# NB: $MODEL_GRID and $MODEL_INVAR are written in mec namelist with their original path:                            
+#     the symlinks in input dir aren't actually used                                                                
+mec_dir=$ECTC_WORK/mec.${block}
+mkdir -p ${mec_dir}/input ${mec_dir}/output ${mec_dir}/run ${mec_dir}/log
+rm -f ${mec_dir}/output/*.nc.*Z
+
+cd ${mec_dir}/input
+ln -sf $MODEL_GRID ./
+ln -sf $MODEL_INVAR ./
+ln -sf $GEOID_GRID ./
+touch blklsttmp
+
+# Loop on hours of verification times (and observations)
+for h in $(seq 0 $mec_stride 23) ; do
+  hh=$(printf "%%02d" ${h})
+  echo "mec: processing verification time "$YMD" "$hh
+
+  cd ${mec_dir}/input
+  rm -f cdfin_*.nc
+  rm -f icon_??????????0000_mlevSurf_unstr_+0???0000.grb.m???
+  rm -f range.*
+  rm -f ${mec_dir}/output/mon*.nc $ECTC_WORK/mec/output/vep*.nc
+  
+# Gather observations
+#  for file in $(ls $ECTC_WORK/bufr/obs_${hh}Z-*-*-*.nc) ; do 
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_synop obs_${hh}Z-0-0-13 obs_${hh}Z-0-255-170 obs_${hh}Z-0-255-172 obs_${hh}Z-0-255-176 obs_${hh}Z-0-255-178
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_synop_mob obs_${hh}Z-0-0-14
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_ship obs_${hh}Z-1-0-255 obs_${hh}Z-1-255-180
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_temp obs_${hh}Z-2-4-255 obs_${hh}Z-2-255-109 obs_${hh}Z-2-255-111
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_tempship obs_${hh}Z-2-5-255
+  # does not work at the moment, restore later should work since dballe-6.2-3961
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_pilot obs_${hh}Z-2-1-4
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_pilot_p obs_${hh}Z-2-1-5
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_amdar obs_${hh}Z-4-0-8 obs_${hh}Z-4-255-146
+  make_ncdf_link3 $ECTC_WORK/bufr.${block} ./ cdfin_acars obs_${hh}Z-4-0-9
+
+# Gather model output for every run verifying at this hour
+#   $hh_run: starting hour(s) (UTC) of the forecasts
+#   $range:  Icon forecast time. Initially set to the minimum ($h-$hh_run), then incremented
+#            by 24h steps, until the maximum possible value ($range can not exceed $run_len)
+  rm -f range.lst*
+  for hh_run in $hh_run_list ; do 
+    if [ $h -ge $hh_run ] ; then
+      range=$((${h}-${hh_run}))
+    else
+      range=$((${h}+24-${hh_run}))
+    fi
+#   Keeping forecast starting hour fixed ($hh_run), scan backwards starting dates that have the required forecst range
+    while [ $range -le $run_len ] ; do
+      reftime=$(date -ud "$YMD $hh - ${range}hours" +%%Y%%m%%d%%H)
+      if [ $reftime -lt $rt_avail_first ] ; then
+        break
+      elif [ $reftime -gt $rt_avail_last ] ; then 
+        range=$(($range+24))
+        continue
+      fi
+
+      echo "${hh}Z: proc reftime $reftime range $range"
+      ileps_root=${ECTC_ARC}/proc_ff/${reftime}00
+      range3=$(printf "%%03d" $range)
+
+#     forecast vaild at the required time
+      range_dd=$(($range/24))
+      range_hh=$(($range%%24))
+      range_hh2=$(printf "%%02d" $range_hh)
+      ileps_file=icon_${reftime}0000_mlevSurf_unstr_+0${range_dd}${range_hh2}0000.grb
+
+#     forecast(s) vaild at the times required for statistically processed varibles
+#     The objective is to allow mec to calculate the precipitation forecasted in the previous 1,3,6,12 hours ($statProc_ranges)
+#     The values at the current verification time are already available, so only the previous times (-1, -3, -6 -12 hours) must be added.
+#     NB: $range is relative to the shifted reftime (00Z), so the condition "$statProcLen -le $range" applies also when processing shifted forecasts
+      ileps_SPfiles=""
+      for statProcLen in $statProc_ranges ; do
+        if [ $statProcLen -le $range ] ; then
+          SPrange=$(($range-$statProcLen))
+          SPrange_dd=$(($SPrange/24))
+          SPrange_hh=$(($SPrange%%24))
+          SPrange_hh2=$(printf "%%02d" $SPrange_hh)
+          ileps_SPfiles=${ileps_SPfiles}" icon_${reftime}0000_mlevSurf_unstr_+0${SPrange_dd}${SPrange_hh2}0000.grb"
+        fi
+      done
+
+#     Process model data at the required verification time
+#     $ileps_fgfile can be any file verifying at observation time (any member, but not a previous timestamp)
+#     $ileps_file_p = $ileps_file compreso il path
+      cntf=0
+      for mem in $(seq $nens) ; do
+        mem3=$(printf "%%03d" $mem)
+        mem_ok="N"
+        out_file=${ileps_file}".m"${mem3}
+
+        if [ $rt_shift -eq 0 ] ; then        #dev#: se ileps_SPfiles="" basta fare un link
+#         Shift of reftime not required
+	  ileps_file_p=${ileps_root}/mem_${mem}/${ileps_file}
+          if [ -s $ileps_file_p ] ; then
+            rsync $ileps_file_p $out_file
+            ileps_fgfile=$out_file
+	    mem_ok="Y"
+            cntf=$(($cntf+1))
+          fi
+
+        else                              
+#         Shift of reftime required
+#         Output of function shift_icon_name:
+#	  - org_file : derived from $in_file, with reftime -${rt_shift}hours and trange +${$rt_shift}hours
+#         - zero_file: derived from $in_file, with reftime -${rt_shift}hours and trange = $rt_shift
+          shift_icon_name $mem $ileps_file $rt_shift
+	  
+          if [ -s $org_file_p ] ; then
+            rm -f zero.grb
+            grib_copy -w productDefinitionTemplateNumber=11 $zero_file zero.grb
+            $ECTC_BIN/grib_forc_shift.exe $org_file $out_file $rt_shift -f0 zero.grb
+            ileps_fgfile=$out_file
+	    mem_ok="Y"
+            cntf=$(($cntf+1))
+          fi
+        fi
+
+#       Process model data at the verification times required for statistically processed fields
+        if [ $mem_ok = "Y" ] ; then
+	
+#       Build the list of the required icon files
+        ileps_SPfiles_p=""
+        for file in $ileps_SPfiles ; do
+          if [ $rt_shift -eq 0 ] ; then
+            file_p=${ileps_root}/mem_${mem}/${file}
+          else
+            shift_icon_name $mem $file $rt_shift
+            file_p=$org_file
+          fi
+          if [ -s $file_p ] ; then
+            ileps_SPfiles_p=${ileps_SPfiles_p}" "${file_p}
+          fi
+        done
+
+#       Extract the required statistically processed fields
+        rm -f spv.grb
+        nspf=$(echo $ileps_SPfiles_p | wc -w)
+        if [ $nspf -gt 0 ] ; then
+          grib_copy -w shortName=$spv_ecc $ileps_SPfiles_p spv.grb
+
+#         Append them to mec input file
+          if [ $rt_shift -eq 0 ] ; then
+            cat spv.grb >> $out_file
+          else
+            rm -f spv_shifted.grb
+            $ECTC_BIN/grib_forc_shift.exe spv.grb spv_shifted.grb $rt_shift -f0 zero.grb
+            cat spv_shifted.grb >> $out_file
+          fi
+        fi # nspf > 0 (this is not analysis, there are timeranges for statistically processing) 
+        fi # mem_ok = "Y" (data at verification time exist for at least one member)
+      done                 #loop 4: ensemble members
+
+#     If at least one Icon file exist, add current range to the list of ranges to be processed by mec
+      if [ $cntf -gt 0 ] ; then
+        echo ${range3}00 >> range.lst
+      fi
+      range=$(($range+24))
+    done                   #loop 3: forecast strting dates
+  done                     #loop 2: forecast strting hours
+
+  if [ ! -s range.lst ] ; then 
+    echo "No Icon input data found for verification time $YMD $hh: skip"
+    break
+  fi
+  sort range.lst > range.lst.sort
+  sed 's/^0*//' < range.lst.sort | sed 's/^$/0/' > range.lst.ok # remove leading zeroes, but if the resulting line is empty, leve one "0"
+  range_list=$(tr '\n' ' ' < range.lst.ok)
+  nranges=$(wc -l range.lst | awk '{print $1}')
+  echo "### ${YMD} ${hh}: ranges ${nranges} ${range_list}"
+
+# Build namelist
+  cd ${mec_dir}/run
+  rm -f mec.nml namelist YU?????
+  export YMD hh ileps_fgfile range_list block
+  conf_template mec.nml  
+  ln -sf mec.nml namelist
+
+# Run mec
+  export UCX_TLS=all
+  export UCX_POSIX_USE_PROC_LINK=n
+  mec_log=${mec_dir}/log/mec.log.${YMD}${hh}Z
+  echo "Run mec. Logfile "$mec_log
+  srun $BIN_DIR/mec > $mec_log 2>&1
+
+# Rename output
+  cd ${mec_dir}/output
+  rename .nc .nc.${YMD}${hh}Z *.nc
+
+done                       #loop 1: verification times (hours of observations)  
+
+%include <tail.h>

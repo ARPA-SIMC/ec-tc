@@ -1,0 +1,51 @@
+#!/bin/bash
+
+if [ "$1" == "-h" ] || [ "$#" == "0" ]; then
+  echo "ARGS"
+  echo "1.) feedback file incl. path"
+  echo "2.) lead time"
+  echo "EXAMPLE:"
+  echo " ffilecheck /hpc/uhome/ffundel/FDBK/ilam/verSYNOP.2024100100 1200" 
+exit
+fi
+
+
+Rscript -<<EOF
+
+
+library(FFV2,lib.loc="/home/dwo/Rlibs")
+suppressMessages(require(knitr))
+
+args <- commandArgs(trailingOnly = TRUE)
+
+file = "$1" #args[1]
+
+lt = "$2" #args[2]
+
+
+
+DT = fdbk_dt_multi_large(file)
+DT = DT[!is.na(veri_data)]
+
+STAT = DT[veri_forecast_time==lt,.(
+OMIN=round(min(obs,na.rm=T),4),
+FMIN=round(min(veri_data,na.rm=T),4),
+OMAX=round(max(obs,na.rm=T),4),
+FMAX=round(max(veri_data,na.rm=T),4),
+OMISS=sum(is.na(obs),na.rm=T),
+FMISS=sum(is.na(veri_data),na.rm=T),
+LEN=.N
+),
+by=c("veri_model","veri_forecast_time","veri_description","varno")]
+
+STAT[,varname:=varno_to_name(varno)]
+STAT[,veri_model:=trimws(veri_model)]
+STAT[,veri_forecast_time:=trimws(veri_forecast_time)]
+STAT[,veri_description:=trimws(veri_description)]
+
+#print(STAT,topn=dim(STAT)[1])
+
+setcolorder(STAT, c(1,2,3,4,12,5,6,7,8,9,10,11))
+print(kable(STAT))
+
+EOF

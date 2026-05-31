@@ -1,0 +1,59 @@
+#!/bin/bash
+#SBATCH --output ./du_ecfs.out
+#SBATCH --error ./du_ecfs.err
+#SBATCH --threads-per-core=1
+#SBATCH --export=ALL,STHOST
+#SBATCH --account=cosmo
+#SBATCH --qos=nf
+#SBATCH --time=23:00:00
+#SBATCH --ntasks=1
+
+#
+# Script to estimate the size of an ECFS directory
+#
+
+# set -x
+
+work_dir=/ec/ws2/tc/zcl2/tcwork/tmp
+cd $work_dir
+
+#if [ $# -ne 1 ] ; then
+#  echo "Usgae: du_ecfs.job ec_path"
+#  exit 1
+#fi
+#if [ $1 = "-h" ] ; then
+#  echo "Usgae: du_ecfs.job ec_path"
+#  exit 1
+#fi
+
+#path=$1
+
+out_file=du_ecf.dat
+rm -f dir.lst $out_file
+els ec:/zcl2/ileps/arc/proc_ff > dir.lst
+
+rm -f $out_file
+while read dir ; do
+
+  rm -f eclist.tmp ecsiz.tmp
+  path=ec:/zcl2/ileps/arc/proc_ff/${dir}
+
+  echo "Scan "$path
+  els -lR $path > eclist.tmp
+
+  echo "Process"
+  awk '{print $5}' eclist.tmp | grep -v ^$ | grep -v ^0$ > ecsiz.tmp
+
+  cnt=0
+  tsiz=0
+  while read siz ; do
+    tsiz=$(($tsiz+$siz))
+    cnt=$(($cnt+1))
+  done < ecsiz.tmp
+
+  echo "$dir,$cnt,$tsiz,"$(($tsiz/1000000000)) >> $out_file
+done < dir.lst
+
+# echo "Number of non-empty files: "$cnt
+# echo "Total size (byte): "$tsiz
+# echo "Total size (Gb): "$(($tsiz/1000000000))

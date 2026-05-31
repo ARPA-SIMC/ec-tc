@@ -1,8 +1,8 @@
 %include <sched_prolog.h>
 %include <sched_serial.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 
-out_dir=$PREOPE_OUT/log
+out_dir=${ECTC_ARC}/log
 mkdir -p $out_dir
 out_file=ileps.${DATE}${TIME}.tar.gz
 

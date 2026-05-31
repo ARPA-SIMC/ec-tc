@@ -1,26 +1,57 @@
 %include <sched_prolog.h>
-%include <sched_serial.h>
-%include <script_prolog.h>
+%include <sched_serial_long.h>
+%include <script_prolog_leps.h>
 
-mkdir -p $ARCHIVE_DIR
-cd $ARCHIVE_DIR
+# ${ECTC_ARC:7}=tc/zcl2/tcwork/arc (last 7 characters of $ECTC_ARC)
+if [ $STHOST = /ec/ws1 ] ; then
+  ECTC_ARC_BCK=/ec/ws2/${ECTC_ARC:7}
+elif [ $STHOST = /ec/ws2 ] ; then
+  ECTC_ARC_BCK=/ec/ws1/${ECTC_ARC:7}
+else
+  echo "STHOST undefined!"
+  exit 2
+fi
 
-# archive on local dir
-out_dir=$PREOPE_OUT/arc/${DATE}${TIME}
-mkdir -p $out_dir
-for var in T_2M TD_2M T_G TOT_PREC U_10M V_10M VMAX_10M PMSL ALHFL_S ASHFL_S ASOB_S ATHB_S CLCT Plevs ; do
-  cp $POST_DIR/${DATE}${TIME}.??.${var}.grib $out_dir
+cd $ECTC_ARC
+
+# Get forecast range (select between variables $MODEL_STOP_00, ..)
+T2=${TIME:0:2}
+eval MODEL_STOP=\$MODEL_STOP_$T2
+
+# 1) archive on local dir
+
+# 1.1) Surface variables, 2km regular grid (on both $ECTC_ARC and $ECTC_ARC_BCK)
+arc_dir1=$ECTC_ARC/output/surf/${DATE}${TIME}
+arc_dir2=$ECTC_ARC_BCK/output/surf/${DATE}${TIME}
+mkdir -p $arc_dir1 $arc_dir2
+# for var in T_2M TD_2M T_G TOT_PREC U_10M V_10M VMAX_10M PMSL ALHFL_S ASHFL_S ASOB_S ATHB_S CLCT Plevs ; do
+for var in T_2M TD_2M TOT_PREC U_10M V_10M CLCT ; do
+  rsync -auv $POST_DIR/${DATE}${TIME}.??.${var}.grib $arc_dir1
+  rsync -auv $POST_DIR/${DATE}${TIME}.??.${var}.grib $arc_dir2
 done
 
-# archive on ecfs
-out_edir="ec:/zcl2/ileps_preope/${DATE}${TIME}"
-emkdir $out_edir
-for var in T_2M TD_2M T_G TOT_PREC U_10M V_10M VMAX_10M PMSL ALHFL_S ASHFL_S ASOB_S ATHB_S CLCT Plevs ; do
-  tar -cf ileps.${DATE}${TIME}.${var}.tar $POST_DIR/${DATE}${TIME}.??.${var}.grib
-  ecp ileps.${DATE}${TIME}.${var}.tar $out_edir
-  if [ $? -eq 0 ] ; then
-    rm ileps.${DATE}${TIME}.${var}.tar
+# 1.2) 3D values on unstructured grid (to produce FF; "mv" to $ECTC_ARC and "cp" to ecfs)
+for mem in $(seq 0 $NLEPSMEMB) ; do
+  in_dir=${ECTC_WORK}/icon.${mem}/data
+  arc_dir=${ECTC_ARC}/proc_ff/${DATE}${TIME}/mem_${mem}
+  mkdir -p $arc_dir
+
+  nreq=$((1+$MODEL_STOP))  # N.er of expected files: IC + hourly forecast
+  nok=$(find $in_dir -name icon_${DATE}${TIME}00_mlevSurf_unstr_*0000.grb | wc -l)
+  if [ $nok -ne $nreq ] ; then
+    echo "Error: files ouput 3D unstruct $nok, expected $nreq "$(date)
+    ls ${in_dir}/icon_${DATE}${TIME}00_mlevSurf_unstr_*0000.grb
+    exit 2
   fi
+  mv ${in_dir}/icon_${DATE}${TIME}00_mlevSurf_unstr_*0000.grb $arc_dir
+done
+
+ecfs_root=ec:/zcl2/ileps/arc/proc_ff
+for mem in $(seq 0 $NLEPSMEMB) ; do
+  in_dir=${ECTC_ARC}/proc_ff/${DATE}${TIME}/mem_${mem}
+  echo "Copy to ecfs: member "$mem
+  emkdir -p ${ecfs_root}/${DATE}${TIME}/mem_${mem}
+  ecp ${in_dir}/* ${ecfs_root}/${DATE}${TIME}/mem_${mem}
 done
 
 %include <tail.h>

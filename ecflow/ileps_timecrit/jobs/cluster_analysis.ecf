@@ -1,6 +1,6 @@
 %include <sched_prolog.h>
 %include <sched_serial.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 
 # for dateincr
 module load eclib

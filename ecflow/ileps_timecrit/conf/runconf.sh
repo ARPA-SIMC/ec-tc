@@ -1,11 +1,15 @@
 # this script is sourced with set -a (automatic export), so there is
 # no need to export every single variable
 
-MODEL_STOP_00=120
-MODEL_STOP_06=126
-MODEL_STOP_12=120
+MODEL_STOP_00=24
+MODEL_STOP_06=3
+MODEL_STOP_12=3
 MODEL_STOP_18=126
-ENS_TOTAL_MEMB=20 # this must coincide with the value in suite definition until there will be a mechanism to dynamically reduce the number of members
+
+# Number of members in I-LEPS. This must be consistent with variable "membrange" in suiteconf.toml
+NLEPSMEMB=20
+# NLEPSMEMB=2
+
 GRIB_CENTER=80
 GRIB_SUBCENTER=255
 MODEL_FCENS_GP=131
@@ -22,8 +26,6 @@ MODEL_DIR=$ECTC_WORK/icon.$ENS_MEMB
 REGRIB_DIR=$ECTC_WORK/regrib.$ENS_MEMB
 POST_DIR=$ECTC_WORK/post
 SEND_DIR=$ECTC_WORK/send
-ARCHIVE_DIR=$ECTC_WORK/archive
-PREOPE_OUT=$TCWORK/ileps_preope
 PRIVATE=$TCWORK/lb/private
 BIN_DIR=$ECTC_WORKBASE/bin
 CONST_DIR=$ECTC_WORKBASE/const
@@ -47,19 +49,17 @@ DET_GRID=0.1/0.1
 DET_EXPID=1
 DET_HINCBD=3
 
-# ensemble configuration
+# Cluster analysis configuration (IFS ensemble)
 NECEPSMEMB=50
-NLEPSMEMB=20
 #deb NECEPSMEMB=5
-#deb NLEPSMEMB=4
-CLA_LAG=(0 6)
+
+#CLA_LAG=(0 6)
+CLA_LAG=(6 12)
 #old CLA_LAG=(0 12)
 #deb CLA_LAG=(0)
 CLA_STEP=(96 120)
-
 CLA_NENS=${#CLA_LAG[*]}
 CLA_NSTEP=${#CLA_STEP[*]}
-
 
 ## @fn safe_rm_rf()
 ## @brief Remove recursively directory tree(s) with some security checks.

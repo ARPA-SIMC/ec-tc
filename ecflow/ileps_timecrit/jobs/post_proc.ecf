@@ -1,16 +1,24 @@
 %include <sched_prolog.h>
 %include <sched_serial.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 %include <mod_icon.h>
+
+in_req=1
 
 safe_rm_rf $POST_DIR
 mkdir -p $POST_DIR
 cd $POST_DIR
 
-for member in $(seq 0 $ENS_TOTAL_MEMB) ; do
+for member in $(seq 0 $NLEPSMEMB) ; do
   mm=$(printf "%%02d" $member)
   in_dir=$ECTC_WORK/icon.$member/data
-  in_lst=$(ls ${in_dir}/icon_${DATE}${TIME}00_surf_all2.5km_+*.grb)
+
+  in_cnt=$(find $in_dir -type f -name "icon_${DATE}${TIME}00_surf_all2km_+*.grb" |wc -l)
+  if [ $in_cnt -lt $in_req ] ; then
+    echo "post_proc: input incompleto in "$in_dir
+    exit 1
+  fi
+  in_lst=$(ls ${in_dir}/icon_${DATE}${TIME}00_surf_all2km_+*.grb)
 
 # Process surface data: re-arrange to one file per parameter
   rm -f surf.filt

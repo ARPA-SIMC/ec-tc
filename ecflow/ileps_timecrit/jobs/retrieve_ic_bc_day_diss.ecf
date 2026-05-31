@@ -1,10 +1,10 @@
 %include <sched_prolog.h>
 %include <sched_serial_mem.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 
 retrieve_ana_diss() {
 #-------------------------------------------------------------------------------
-# Retrieve from $EC_DISS fields for initial conditions of one LEPS member.
+# Retrieve from $ECTC_DISS or $ECTC_ARC fields for initial conditions of one LEPS member.
 # Data can be either analysis or 12h forecasts
 # Special processing from gaussian grid for SST and SWV
 #
@@ -15,9 +15,9 @@ retrieve_ana_diss() {
 # $ENS_MEMBER (ens. member, relative to LEPS numeration)
 # $elem       (ens. member, relative to IFS numeration)
 # $disspref   (prefix for input files: ITD or ITX)
-# $geoinfo    (chiavi MARS relative al dominio dei dati IFS: AREA+GRID)
+# $geoinfo    (MARS keys describing the domain of IFS data: AREA+GRID)
 #
-# Input: files ITD, ITS or ITX, in $EC_DISS
+# Input: files ITD, ITS or ITX, in $ECTC_DISS or $ECTC_ARC
 #
 # Output: groups of grib files, on regular grid, in $RETRIEVE_IC_BC_DIR =
 #   $TCWORK/work/ileps_tc_2.5km/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
@@ -37,22 +37,29 @@ rt="$refdate $reftime"
 vt=$(date -d "${rt} +${lag}hours" +"%%Y%%m%%d %%H")
 file_rt=$(date -d "$rt" +"%%m%%d%%H")
 file_vt=$(date -d "$vt" +"%%m%%d%%H")
+full_rt=$(date -d "$rt" +"%%Y%%m%%d%%H")
+
+if [ $predefault = "diss" ] ; then
+  indir=${ECTC_DISS}
+elif [ $predefault = "arc" ] ; then
+  indir=${ECTC_ARC}/input/IFS/${full_rt}
+fi
 
 if [ $disspref = ITD -o  $disspref = ITS ] ; then
-  inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001"   # constant fields
+  inputc="${indir}/${disspref}${file_rt}00${file_rt}001"   # constant fields
   if [ $lag = 0 ] ; then                                     # all other fields
-    input="${EC_DISS}/${disspref}${file_rt}00${file_rt}011"    
+    input="${indir}/${disspref}${file_rt}00${file_rt}011"    
   else
-    input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"
+    input="${indir}/${disspref}${file_rt}00${file_vt}001"
   fi
 
 elif [ $disspref = ITX ] ; then
   if [ $reftime = 0000 -o  $reftime = 1200 ] ; then
-    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"         # constant fields
+    inputc="${indir}/ITS${file_rt}00${file_rt}001"         # constant fields
   elif [ $reftime = 0600 -o  $reftime = 1800 ] ; then
-    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"         # constant fields
+    inputc="${indir}/ITS${file_rt}00${file_rt}001"         # constant fields
   fi
-  input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"    # all other fields
+  input="${indir}/${disspref}${file_rt}00${file_vt}001"    # all other fields
 
 fi
 
@@ -80,7 +87,7 @@ for var in t u v w q clwc ciwc crwc cswc z lnsp ; do
   cat tmp.hybrid.${var}.regular_ll.grb >> $target
 done
 
-# Surface fields
+# Surface fields (with init_mode=3, they should be taken from ICON-EU; see iconremap_IC.nml)
 target="data/ec_${refdate}${reftime}_surf.${lag}"
 for shortName in src tsn skt sd rsn asn ci ; do
   cat tmp.surface.${shortName}.regular_ll.grb >> $target
@@ -117,7 +124,7 @@ EOF
 mars maskSST.mars
 cat tmp.surface.sst.regular_ll.grb.masked >> $target
 
-# Soil water content
+# Soil water content (with init_mode=3, it should be taken from ICON-EU; iconremap_IC.nml)
 file_swv_gg=tmp.depthBelowLandLayer.swv.reduced_gg.grb
 file_smi_ll=tmp.depthBelowLandLayer.smi.regular_ll.grb
 rm -f $file_swv_gg $file_smi_ll 
@@ -140,19 +147,18 @@ done
 
 retrieve_for_diss() {
 #-------------------------------------------------------------------------------
-# Retrieve from $EC_DISS fields for boundary conditions of one LEPS member.
+# Retrieve from $ECTC_DISS or $ECTC_ARC fields for boundary conditions of one LEPS member.
 #
 # Use enviromnent varibles set by main program:
 # $refdate    (reftime of IFS run to be retrieved: yyyymmdd)
 # $reftime    (reftime of IFS run to be retrieved: hh00)
 # $range      (forecast time required)
-# $lag        (forecast step of data to be retrieved)
 # $ENS_MEMBER (ens. member, relative to LEPS numeration)
 # $elem       (ens. member, relative to IFS numeration)
 # $disspref   (prefix for input files: ITD or ITX)
-# $geoinfo    (chiavi MARS relative al dominio dei dati IFS: AREA+GRID)
+# $geoinfo    (MARS keys describing the domain of IFS data: AREA+GRID)
 #
-# Input: files ITD, ITS or ITX, in $EC_DISS
+# Input: files ITD, ITS or ITX, in $ECTC_DISS or $ECTC_ARC
 #
 # Output: groups of grib files, on regular grid, in $RETRIEVE_IC_BC_DIR =
 #   $TCWORK/work/ileps_tc_2.5km/retrieve_ic_bc.$ENS_MEMB.$RETRIEVE_STOP
@@ -166,22 +172,29 @@ rt="$refdate $reftime"
 vt=$(date -d "${rt} +${range}hours" +"%%Y%%m%%d %%H")
 file_rt=$(date -d "$rt" +"%%m%%d%%H")
 file_vt=$(date -d "$vt" +"%%m%%d%%H")
+full_rt=$(date -d "$rt" +"%%Y%%m%%d%%H")
+
+if [ $predefault = "diss" ] ; then
+  indir=${ECTC_DISS}
+elif [ $predefault = "arc" ] ; then
+  indir=${ECTC_ARC}/input/IFS/${full_rt}
+fi
 
 if [ $disspref = ITD -o  $disspref = ITS ] ; then
-  inputc="${EC_DISS}/${disspref}${file_rt}00${file_rt}001"   # constant fields
+  inputc="${indir}/${disspref}${file_rt}00${file_rt}001"   # constant fields
   if [ $range = 0 ] ; then                                   # all other fields
-    input="${EC_DISS}/${disspref}${file_rt}00${file_rt}011"    
+    input="${indir}/${disspref}${file_rt}00${file_rt}011"    
   else
-    input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"
+    input="${indir}/${disspref}${file_rt}00${file_vt}001"
   fi
 
 elif [ $disspref = ITX ] ; then
   if [ $reftime = 0000 -o $reftime = 1200 ] ; then                # constant fields
-    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"         
+    inputc="${indir}/ITS${file_rt}00${file_rt}001"         
   elif [ $reftime = 0600 -o  $reftime = 1800 ] ; then
-    inputc="${EC_DISS}/ITS${file_rt}00${file_rt}001"
+    inputc="${indir}/ITS${file_rt}00${file_rt}001"
   fi
-  input="${EC_DISS}/${disspref}${file_rt}00${file_vt}001"    # all other fields
+  input="${indir}/${disspref}${file_rt}00${file_vt}001"    # all other fields
 
 fi
 

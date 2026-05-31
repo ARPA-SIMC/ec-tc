@@ -1,0 +1,45 @@
+[ecfvars]
+
+SCHOST = "hpc"
+WSHOST = "hpc"
+STHOST = "$STHOST"
+# STHOST = "/ec/ws1"
+# STHOST_BCK = "/ec/ws2"
+
+### # the following 3 directories must reside in /home/$USER because they
+### # are needed by the vm which does not see TC filesystems
+ECF_FILES = "$ECTC_BASE/jobs"
+ECF_INCLUDE = "$ECTC_BASE/include"
+ECF_HOME = "$ECTC_BASE/ecflow"
+ECF_STATUS_CMD = "STHOST=%STHOST% troika monitor %SCHOST% %ECF_JOB%"
+ECF_KILL_CMD = "STHOST=%STHOST% troika kill %SCHOST% %ECF_JOB%"
+ECF_JOB_CMD = "STHOST=%STHOST% troika submit -o %ECF_JOBOUT% %SCHOST% %ECF_JOB%"
+ECF_TRIES = "1"
+
+
+ECTC_WORK = "%STHOST%/tc/$USER/tcwork/work/%SUITE%"
+ECTC_LOG = "$ECTC_BASE/ecflow/%SUITE%"
+# ECTC_ARC="%STHOST%/tc/$USER/tcwork/arc"
+# ECTC_ARC_BCK="%STHOST_BCK%/tc/$USER/tcwork/arc"
+ECTC_ARC = "/ec/ws1/tc/zcl2/tcwork/arc"
+ECTC_ARC_BCK = "/ec/ws2/tc/zcl2/tcwork/arc"
+
+### Keep varibles not used for verification suite, just to be able to source include/auto/vars.h
+ECTC_BIN = "$ECTC_BASE/bin" # suite management executables (not model executables)
+ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
+ECTC_WORKBASE = "%STHOST%/tc/$USER/tcwork"
+ECTC_DISS = "%STHOST%/tc/zcl/tcwork/ecdiss_icon"
+predefault = "diss"
+
+[suiteconf]
+# mode = "free"
+mode = "cron"
+
+# hhver: start hour of verificaiton suite (only if mode = "cron")
+hhver = "05"
+
+# First and last date to process (only if mode = "free")
+suitestart = 2026-01-01 00:00:00Z
+suitestop = 2026-01-04 00:00:00Z
+stride = 4                            # Number of dates to be processed in paralles (blocks)
+obssrc = "carm"                       # Source of observations: "mars" or "carm"; check mec_stride in runconf.sh

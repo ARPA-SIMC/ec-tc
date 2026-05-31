@@ -1,0 +1,12 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog_leps.h>
+
+ECF_DATE=%ECF_DATE%
+ECF_TIME=%ECF_TIME%
+
+echo "In proc"
+echo "ECF date: "$ECF_DATE" "$ECF_TIME
+echo "System date: "$(date)" YMD "$YMD
+
+%include <tail.h>

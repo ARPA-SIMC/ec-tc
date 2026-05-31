@@ -1,6 +1,6 @@
 %include <sched_prolog.h>
 %include <sched_serial.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 
 safe_rm_rf $RETRIEVE_IC_BC_DIR_COMMON
 mkdir -p $RETRIEVE_IC_BC_DIR_COMMON

@@ -1,0 +1,21 @@
+%include <sched_prolog.h>
+%include <sched_serial_mem.h>
+%include <script_prolog_leps.h>
+
+source_dir=${ECTC_ARC}/input/DWD
+target_dir=${ICONSOIL_DIR}
+mkdir -p $target_dir
+cd $target_dir
+
+# Retrieve grid informations
+if [ ! -f icon_grid_0027_R03B08_N02.nc ] ; then
+  ln -s ${CONST_DIR}/icon-eu/icon_grid_0027_R03B08_N02.nc .
+fi
+
+# Retrieve data file from archive dir.
+rsync -av ${source_dir}/icon-eu_soil_${DATE}${TIME}.grb2 .
+
+%include <tail.h>
+
+
+

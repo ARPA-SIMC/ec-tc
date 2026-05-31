@@ -2,7 +2,8 @@
 
 SCHOST = "hpc"
 WSHOST = "hpc"
-STHOST = "$STHOST"
+#STHOST = "$STHOST"
+STHOST = "/ec/ws1"
 # the following 3 directories must reside in /home/$USER because they
 # are needed by the vm which does not see TC filesystems
 ECF_FILES = "$ECTC_BASE/jobs"
@@ -17,21 +18,30 @@ ECTC_BIN = "$ECTC_BASE/bin" # suite management executables (not model executable
 ECTC_CONF = "$ECTC_BASE/conf" # shell conf files to be sourced
 ECTC_WORKBASE = "%STHOST%/tc/$USER/tcwork"
 ECTC_WORK = "%STHOST%/tc/$USER/tcwork/work/%SUITE%"
-ECTC_LOG = "$ECTC_BASE/ecflow/ileps_tc_2.5km/day/"  # root dir of ecflow lof files
-EC_DISS = "%STHOST%/tc/zcl/tcwork/ecdiss_icon" # $USER - zcl?
+ECTC_LOG = "$ECTC_BASE/ecflow/ileps_tc_2.5km/day/"  # Root dir of ecflow log files
+ECTC_DISS = "%STHOST%/tc/zcl/tcwork/ecdiss_icon"    # Path of real-time IFS IC/BC (predefault = "diss")
+ECTC_ARC = "%STHOST%/tc/zcl2/tcwork/arc"            # Root path of local archive (input, output, log, ...)
 
 [suiteconf]
 
-# suitestart = 2024-01-01 00:00:00Z
+suitestart = 2026-01-26 00:00:00Z
 suiteback = 15
-suitestop = 2035-01-01 00:00:00Z
+suitestop = 2026-01-26 00:00:00Z
 # suiteduration = 365
-hours = "0-18:6" # "0" to run only at 00; "0-12:12" to run only at 00 and 12
-forecastrange = 126
+#hours = "6-18:12" # "0" to run only at 00; "0-12:12" to run only at 00 and 12
+#hours = "18"
+hours = "0"
+forecastrange = 24
 iconsoil = "ICON-EU"
-subsuites = ["ana", "eps", "det"]
-pretypes = ["mars", "diss"]
+# subsuites = ["ana", "eps", "det"]
+# subsuites = "eps"
+pretypes = ["mars", "diss", "arc"]
 predefault = "diss"
 splitretrieve = true
+
+# List of members in I-LEPS. This must be consistent with variable "NLEPSMEMB" in runconf.sh
 membrange = "0-20"
-timecrit = true
+# membrange = "0-2"
+schedule = "cron"  # suite activation: diss, cron, free (man)
+cron_delay = 12     # Care if hours+cron_delay > 23 !!
+save_input = true

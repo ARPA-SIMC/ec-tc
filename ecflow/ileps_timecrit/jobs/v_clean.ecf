@@ -1,0 +1,15 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <auto/head.h>
+#
+# Delete all active jobs for Leps verification suite.
+# To be run daily, before processing the new forecast
+#
+set -x
+
+echo "In clean"
+HH=%HH%
+echo "Cancel jobs for run "$HH" (if any)"
+
+%include <tail.h>
+

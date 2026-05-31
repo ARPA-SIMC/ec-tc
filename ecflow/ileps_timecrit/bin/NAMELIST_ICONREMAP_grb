@@ -1,0 +1,15 @@
+&remap_nml
+ in_grid_filename  = 'icon_grid_0027_R03B08_N02.nc'
+ in_filename       = 'icon-eu_soil.grb2'
+ in_type           = 2
+ lsynthetic_grid   = .TRUE.
+ nxpoints          = 1921
+ nypoints          = 1551
+ corner1           = -10.7,28.5
+ corner2           = 37.3,59.5
+ out_filename      = 'out.grb'
+ out_type          = 3
+ out_filetype      = 2
+ l_have3dbuffer    = .false.
+ ncstorage_file    = "ncstorage.tmp"
+/

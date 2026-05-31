@@ -1,0 +1,40 @@
+#!/bin/bash
+#SBATCH --output ./cp_to_ecfs.out
+#SBATCH --error ./cp_to_ecfs.err
+#SBATCH --threads-per-core=1
+#SBATCH --export=ALL,STHOST
+#SBATCH --account=cosmo
+#SBATCH --qos=nf
+#SBATCH --time=23:00:00
+#SBATCH --ntasks=1
+
+#
+# Script to copy to ecfs the Icon-LEPS archive
+#
+
+set -x
+work_dir=/ec/ws2/tc/zcl2/tcwork/tmp
+local_root=/ec/ws2/tc/zcl2/tcwork/arc/proc_ff
+ecfs_root=ec:/zcl2/ileps/arc/proc_ff
+date1=20250629
+ndays=1
+
+cd $work_dir
+
+# datac=20250630
+# for mem in $(seq 18 20) ; do
+#   echo "Process day "$datac" member "$mem
+#   emkdir -p ${ecfs_root}/${datac}1800/mem_${mem}
+#   ecp ${local_root}/${datac}1800/mem_${mem}/* ${ecfs_root}/${datac}1800/mem_${mem} 
+# done
+
+cnt=0
+while [ $cnt -lt $ndays ] ; do
+  datac=$(date -d "$date1 + ${cnt}day" +%Y%m%d)
+  for mem in $(seq 0 20) ; do
+    echo "Process day "$datac" member "$mem
+    emkdir -p ${ecfs_root}/${datac}1800/mem_${mem}
+    ecp ${local_root}/${datac}1800/mem_${mem}/* ${ecfs_root}/${datac}1800/mem_${mem} 
+  done
+  cnt=$(($cnt+1))
+done

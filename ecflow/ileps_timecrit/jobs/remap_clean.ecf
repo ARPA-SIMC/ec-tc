@@ -1,6 +1,6 @@
 %include <sched_prolog.h>
 %include <sched_serial.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 
 # Purge the directory $TCWORK/work/ileps_tc_2.5km/remap.$m/data ($REMAP_DIR)
 # Each instance of task remap_day write one file in this directory, and files

@@ -1,0 +1,8 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog_leps.h>
+
+echo "Running cron"
+sleep 30
+
+%include <tail.h>

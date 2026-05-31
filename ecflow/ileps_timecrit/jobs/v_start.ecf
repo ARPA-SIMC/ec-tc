@@ -1,0 +1,26 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog_ver.h>
+#
+# Calculate the starting time (=reference time) of the LEPS forecast to be processed
+# use the YMD "meter" to propagate the information to ecflow and the other tasks
+#
+
+set -x
+
+echo "In vstart"
+ECF_DATE=%ECF_DATE%
+ECF_TIME=%ECF_TIME%
+
+mode=%mode%
+if [ $mode = "cron" ] ; then
+  YMD=$(date -ud "${ECF_DATE}-${obs_delay}day" +"%%Y%%m%%d")
+  ecflow_client --meter=YMDc $YMD
+fi
+
+echo "ECflow date/time: "$ECF_DATE" "$ECF_TIME
+echo "System date/time: "$(date)
+echo "Processing verification times in day: "$YMD
+
+%include <tail.h>
+

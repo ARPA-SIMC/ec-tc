@@ -1,6 +1,6 @@
 %include <sched_prolog.h>
 %include <sched_parallel_remap.h>
-%include <script_prolog.h>
+%include <script_prolog_leps.h>
 %include <mod_icon.h>
 
 safe_rm_rf $REMAP_DIR_DAY
@@ -29,19 +29,13 @@ if [ "$ENS_MEMB" = 0 ] ; then # deterministic
     export IN_GRID=${IN_GRID_ROOT}.det.grib
 else                          # ens member or control
     hincbd=$EPS_HINCBD
-    export MODEL_NCSTORE=${MODEL_NCSTORE_ROOT}.ens.nc
-    export IN_GRID=${IN_GRID_ROOT}.ens.grib
+    export MODEL_NCSTORE=${MODEL_NCSTORE_ROOT}.det.nc
+    export IN_GRID=${IN_GRID_ROOT}.det.grib
 fi
 
-if [ $TIME = "0000" ] ; then
-  export MODEL_STOP=$MODEL_STOP_00
-elif [ $TIME = "0600" ] ; then
-  export MODEL_STOP=$MODEL_STOP_06
-elif [ $TIME = "1200" ] ; then
-  export MODEL_STOP=$MODEL_STOP_12
-elif [ $TIME = "1800" ] ; then
-  export MODEL_STOP=$MODEL_STOP_18
-fi
+T2=${TIME:0:2}
+# Get forecast range (select between variables $MODEL_STOP_00, ..)
+eval MODEL_STOP=\$MODEL_STOP_$T2
 
 # Analysis and BC+0
 if [ $RETRIEVE_STOP = 0 ] ; then

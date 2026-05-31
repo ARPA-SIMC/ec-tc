@@ -1,0 +1,78 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog_leps.h>
+
+# Path for archive
+T2=${TIME:0:2}
+
+# ${ECTC_ARC:7}=tc/zcl2/tcwork/arc (last 7 characters of $ECTC_ARC)
+if [ $STHOST = /ec/ws1 ] ; then
+  ECTC_ARC_BCK=/ec/ws2/${ECTC_ARC:7}
+elif [ $STHOST = /ec/ws2 ] ; then
+  ECTC_ARC_BCK=/ec/ws1/${ECTC_ARC:7}
+else
+  echo "STHOST undefined!"
+  exit 2
+fi
+
+arc_ifs=${ECTC_ARC}/input/IFS/${DATE}${TIME}
+arc_ifs_bck=${ECTC_ARC_BCK}/input/IFS/${DATE}${TIME}
+arc_dwd=${ECTC_ARC}/input/DWD
+arc_dwd_bck=${ECTC_ARC_BCK}/input/DWD
+mkdir -p $arc_ifs $arc_dwd $arc_ifs_bck $arc_dwd_bck
+
+# Archive: cluster analysis results
+in_dir=${CLUST_ANA_DIR}/data
+nreq=$NLEPSMEMB
+nok=$(find $in_dir -name clust_ana_result_${DATE}${TIME}.*.sh | wc -l)
+if [ $nok -ne $nreq ] ; then
+  echo "Error: cluster analysis files: found $nok, expected $nreq"
+  exit 2
+fi
+
+cla_list=$(ls ${CLUST_ANA_DIR}/data/clust_ana_result_${DATE}${TIME}.*.sh)
+arc_file=${arc_ifs}/clust_ana_result_${DATE}${TIME}.tar
+tar -cf $arc_file $cla_list
+rsync -auv $arc_file ${arc_ifs_bck}/clust_ana_result_${DATE}${TIME}.tar
+
+# Archive: soil from Icon-EU
+soil_file=${ICONSOIL_DIR}/icon-eu_soil_${DATE}${TIME}.grb2
+if [ ! -f $soil_file ] ; then
+  echo "ICON-EU soil file not found"
+  echo $soil_file
+  exit 2
+fi
+rsync -auv $soil_file $arc_dwd
+rsync -auv $soil_file $arc_dwd_bck
+
+# Archive: IFS IC/BC
+# Get forecast range (select between variables $MODEL_STOP_00, ..)
+eval MODEL_STOP=\$MODEL_STOP_$T2    
+
+for mem in $(seq 0 $NLEPSMEMB) ; do
+  in_dir=${ECTC_WORK}/retrieve_ic_bc.${mem}/data
+  arc_dir=${arc_ifs}/mem_${mem}
+  arc_dir_bck=${arc_ifs_bck}/mem_${mem}
+
+  if [ $mem = 0 ] ; then      # deterministic
+    hincbd=$DET_HINCBD
+  else                        # ens member
+    hincbd=$EPS_HINCBD
+  fi
+  nreq=$((1+$MODEL_STOP/$hincbd))  # N.er of expected files: IC + BC (BC+0 e' lo stesso file di IC)
+
+  nok=$(find $in_dir -name ec_${DATE}${TIME}+0000.grib -o -name ec_${DATE}${TIME}+????.grib | wc -l)
+  if [ $nok -ne $nreq ] ; then
+    echo "IC/BC files: found $nok, expected $nreq "$(date)
+    ls ${in_dir}/ec_${DATE}${TIME}+0000.grib
+    ls ${in_dir}/ec_${DATE}${TIME}+????.grib
+    if [ $nok -lt $nreq] ; then
+      exit 2
+    fi
+  fi
+
+  rsync -av ${in_dir}/ec_${DATE}${TIME}+0000.grib ${in_dir}/ec_${DATE}${TIME}+????.grib $arc_dir
+  rsync -av ${in_dir}/ec_${DATE}${TIME}+0000.grib ${in_dir}/ec_${DATE}${TIME}+????.grib $arc_dir_bck
+done  
+
+%include <tail.h>

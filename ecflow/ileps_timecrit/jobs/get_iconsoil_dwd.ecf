@@ -1,0 +1,49 @@
+%include <sched_prolog.h>
+%include <sched_serial.h>
+%include <script_prolog_leps.h>
+%include <mod_icon.h>
+
+# This task retrievs from DWD ftp server the initial conditions Icon-EU
+# to provide soil analysis for Icon-LEPS
+# Icon-EU analysis are presently available only at 00 and 12: if Icon-LEPS
+# runs at other times (06,18), take the last available analysis
+# Version 2.0
+
+# Create working dir
+safe_rm_rf $ICONSOIL_DIR
+mkdir -p $ICONSOIL_DIR
+mkdir -p $ICONSOIL_DIR/data
+cd $ICONSOIL_DIR
+
+# Icon-EU grid
+ln -s ${CONST_DIR}/icon-eu/icon_grid_0027_R03B08_N02.nc .
+
+# Get ICON-EU analysis from DWD
+cp ${PRIVATE}/credentials_sma.netrc  ~/.netrc
+chmod 600 ~/.netrc
+
+# Select icon-eu file
+T2=${TIME:0:2}
+file_3d="icon-eu_to_cleps_${DATE}${T2}.grb2"
+soil_file="icon-eu_soil_${DATE}${TIME}.grb2"
+
+if [ $predefault = "diss" -o $predefault = "mars" ] ; then
+  echo "Retrieve $icon_file "date
+  curl -n -O https://data.dwd.de/data/${file_3d}
+  echo "Retrieve completed "date
+  /bin/rm -f ~/.netrc
+
+# Extract soil fileds form ICON-EU analysis 
+# Mandatory fields + lakes (20250301)
+  grib_copy -w shortName=W_SO/T_SO/T_G/T_ICE/H_ICE/QV_S/FR_ICE/W_I/T_SO/T_SNOW/W_SNOW/RHO_SNOW/H_SNOW/FRESHSNW/Z0/T_MNW_LK/T_BOT_LK/H_ML_LK/T_WML_LK/C_T_LK/DEPTH_LK $file_3d $soil_file
+
+elif [ $predefault = "arc" ] ; then
+  if [ ! -f ${ECTC_ARC}/input/DWD/${soil_file} ] ; then
+    echo "ICON-EU soil file not found"
+    echo ${ECTC_ARC}/input/DWD/${soil_file}
+    exit 2
+  fi
+  cp ${ECTC_ARC}/input/DWD/${soil_file} .
+fi
+
+%include <tail.h>
