@@ -12,14 +12,14 @@
 # to produce a set of diagnostic maps.
 # This is the first step, and must be run on ATOS; scripts 2 and 3 run on SIMC servers.
 #
-#                                                                        Version 1.0.0, Enrico 01/02/2025
+#                                                                        Version 1.1.0, Enrico 16/07/2025
 #--------------------------------------------------------------------------------------------------------
 # - read from filesystem hourly/daily output, re-arrange to a file per parameter
 
 # User modifications
 run_arc="Y"             # copy "structured" ouputs from $nwpts_root to $arc_root
 run_split="Y"           # copy selected parameters to $proc_dir
-proj_lst="S24icon202410"
+proj_lst="S24icon202504"
 var_lst="TOT_PREC CLCT PMSL T_2M RELHUM_2M V_10M U_10M"
 #mm_lst="07 12"
 mm_lst="07"
@@ -36,20 +36,30 @@ export ZCLPERM=/perm/zcl/
 export ECCODES_DEFINITION_PATH=${ZCLPERM}/grib_api_def/ec-2.35.0/definitions.edzw:${ZCLPERM}/grib_api_def/ec-2.35.0/definitions
 export ECCODES_SAMPLES_PATH=${ZCLPERM}/grib_api_def/ec-2.35.0/samples-19.1
 
-#set -x
-set -e
+set -x
+#set -e
 module list
 codes_info
 
 #--------------------------------------------------------------------------------------------------------
 # 1) Copy from $nwpts_root to $arc_root
 
+nf_req=$(( (31*24+1)*2 ))                      # 1490
 for mm in $mm_lst ; do
-  for proj in $proj_lst ; do
+for proj in $proj_lst ; do
   echo "### Save to HPCPERM: $proj $mm"
   mkdir -p ${arc_root}/${proj}/2021${mm}
-  cd ${nwpts_root}/${proj}/bc_ic_00
-  rsync -auv 2021${mm}??00/*_str_*.grb ${arc_root}/${proj}/2021${mm}
+  nf_arc=$(ls -1 ${arc_root}/${proj}/2021${mm}/*_str_*.grb | wc -l)
+  nf_wrk=$(ls -1 ${nwpts_root}/${proj}/bc_ic_00/2021${mm}??00/*_str_*.grb | wc -l)
+  if [ $nf_arc -eq $nf_req ] ; then
+    echo "Files are already in HPCPERM"
+  elif [ $nf_wrk -eq $nf_req ] ; then
+    echo "Copy form working dir"
+    cd ${nwpts_root}/${proj}/bc_ic_00
+    rsync -auv 2021${mm}??00/*_str_*.grb ${arc_root}/${proj}/2021${mm}
+  else
+    echo "Copy form tapes (to be implemented!)"
+  fi
 done
 done
 
